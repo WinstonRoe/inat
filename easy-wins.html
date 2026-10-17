@@ -216,6 +216,14 @@
         color: #b0bec5;
         background: #263238;
       }
+      .stat-chip.unscored {
+        color: #757575;
+        background: #eee;
+      }
+      html.dark-mode .stat-chip.unscored {
+        color: #bdbdbd;
+        background: #2a2a2a;
+      }
 
       .results-head {
         color: #666;
@@ -294,6 +302,10 @@
       }
       .ease-badge.hard {
         background: #e57373;
+        color: #fff;
+      }
+      .ease-badge.unscored {
+        background: #9e9e9e;
         color: #fff;
       }
       .win-body {
@@ -455,6 +467,10 @@
         background: #ffebee;
         color: #c62828;
       }
+      .ease-inline.unscored {
+        background: #f5f5f5;
+        color: #757575;
+      }
       html.dark-mode .ease-inline.easy {
         background: #26331f;
         color: #c5e1a5;
@@ -466,6 +482,10 @@
       html.dark-mode .ease-inline.hard {
         background: #3a1f1f;
         color: #ef9a9a;
+      }
+      html.dark-mode .ease-inline.unscored {
+        background: #2a2a2a;
+        color: #bdbdbd;
       }
 
       .loading {
@@ -660,6 +680,16 @@
             <button type="button" class="stat-chip hard" data-ease="hard">
               <span class="stat-value" id="countHard">0</span> hard
             </button>
+            <button
+              type="button"
+              class="stat-chip unscored"
+              data-ease="unscored"
+              id="unscoredChip"
+              style="display: none"
+              title="Species whose ease score couldn't be fetched — usually a transient rate limit. Search again to retry."
+            >
+              <span class="stat-value" id="countUnscored">0</span> not scored
+            </button>
           </div>
           <button
             id="downloadBtn"
@@ -709,6 +739,8 @@
       const countEasy = document.getElementById("countEasy");
       const countMedium = document.getElementById("countMedium");
       const countHard = document.getElementById("countHard");
+      const countUnscored = document.getElementById("countUnscored");
+      const unscoredChip = document.getElementById("unscoredChip");
       const downloadBtn = document.getElementById("downloadBtn");
 
       let currentView = "grid";
@@ -967,26 +999,37 @@
 
           const taxonRows = Array.from(byTaxon.values());
 
-          // Score each taxon's ease concurrently (2 calls each), throttled.
-          const concurrency = 6;
-          let cursor = 0;
-          const workers = Array.from({ length: concurrency }, async () => {
-            while (cursor < taxonRows.length) {
-              const row = taxonRows[cursor++];
-              try {
-                const ease = await fetchTaxonEase(API_BASE, row.id);
-                row.verifiable = ease.verifiable;
-                row.research = ease.research;
-                row.ease = ease.ease;
-                row.badge = easeLabel(ease.ease);
-              } catch (err) {
-                row.badge = "hard";
-              }
+          // Score each taxon's ease one at a time (2 API calls each), with a
+          // short pause between taxa. Concurrent bursts of requests trip the
+          // iNaturalist rate limiter and the failed lookups are misread as
+          // "hard" (0%), so we trade a little speed for reliability.
+          for (let i = 0; i < taxonRows.length; i++) {
+            const row = taxonRows[i];
+            const scored = i / taxonRows.length;
+            updateProgress(
+              Math.round(scored * 100),
+              "Scoring… " + (i + 1) + " of " + taxonRows.length + " species"
+            );
+            try {
+              const ease = await fetchTaxonEase(API_BASE, row.id, { delayMs: 150 });
+              row.verifiable = ease.verifiable;
+              row.research = ease.research;
+              row.ease = ease.ease;
+              row.badge = easeLabel(ease.ease);
+              row.scored = true;
+            } catch (err) {
+              row.scored = false;
             }
-          });
-          await Promise.all(workers);
+          }
 
           wins = taxonRows;
+          const failed = wins.filter((w) => w.scored === false).length;
+          if (failed) {
+            showError(
+              "errorMessage",
+              `${failed} of ${wins.length} species couldn't be scored (likely a transient rate limit). Re-run the search to retry them.`
+            );
+          }
           render();
         } catch (err) {
           showError("errorMessage", "Something went wrong: " + err.message);
@@ -1000,9 +1043,22 @@
       }
 
       function sortedWins() {
-        const list = activeBadge ? wins.filter((w) => w.badge === activeBadge) : wins.slice();
+        let list;
+        if (activeBadge === "unscored") {
+          list = wins.filter((w) => w.scored === false);
+        } else if (activeBadge) {
+          list = wins.filter(
+            (w) => w.badge === activeBadge && w.scored !== false
+          );
+        } else {
+          list = wins.slice();
+        }
         const sort = sortSelect.value;
         list.sort((a, b) => {
+          // Taxa we couldn't score (rate-limit hiccup) sink to the bottom.
+          const sa = a.scored === false ? 1 : 0;
+          const sb = b.scored === false ? 1 : 0;
+          if (sa !== sb) return sa - sb;
           if (sort === "ease-asc") return a.ease - b.ease || a.name.localeCompare(b.name);
           if (sort === "obs-desc") return b.obsCount - a.obsCount || b.ease - a.ease;
           if (sort === "name") return a.name.localeCompare(b.name);
@@ -1016,23 +1072,31 @@
         controls.style.display = "flex";
         statChips.style.display = "flex";
 
-        const easy = wins.filter((w) => w.badge === "easy").length;
-        const medium = wins.filter((w) => w.badge === "medium").length;
-        const hard = wins.filter((w) => w.badge === "hard").length;
+        const unscored = wins.filter((w) => w.scored === false).length;
+        const scored = wins.filter((w) => w.scored !== false);
+        const easy = scored.filter((w) => w.badge === "easy").length;
+        const medium = scored.filter((w) => w.badge === "medium").length;
+        const hard = scored.filter((w) => w.badge === "hard").length;
         countEasy.textContent = easy;
         countMedium.textContent = medium;
         countHard.textContent = hard;
+        countUnscored.textContent = unscored;
+        unscoredChip.style.display = unscored ? "" : "none";
 
         const shown = sortedWins();
         resultsHead.style.display = "block";
-        resultsHead.textContent = `${shown.length} of ${wins.length} species to confirm`;
+        resultsHead.textContent = unscored
+          ? `${shown.length} of ${wins.length} species to confirm (${unscored} couldn't be scored)`
+          : `${shown.length} of ${wins.length} species to confirm`;
         downloadBtn.style.display = "inline-block";
 
         if (shown.length === 0) {
           resultsContainer.innerHTML = "";
           showWelcome(
             "errorMessage",
-            "No species in that category for this search."
+            activeBadge === "unscored"
+              ? "Nothing here to show."
+              : "No species in that category for this search."
           );
           return;
         }
@@ -1052,11 +1116,14 @@
         const photo = w.photoUrl
           ? `<img class="win-photo" src="${escapeHtml(w.photoUrl)}" alt="" loading="lazy" />`
           : `<div class="win-photo-placeholder">&#129417;</div>`;
+        const badge = w.scored === false
+          ? `<span class="ease-badge unscored" title="Couldn't be scored — likely a rate limit. Search again to retry.">&#8211;</span>`
+          : `<span class="ease-badge ${w.badge}">${w.ease}%</span>`;
         return `
           <div class="win-card">
             <div class="win-photo-wrap">
               ${photo}
-              <span class="ease-badge ${w.badge}">${w.ease}%</span>
+              ${badge}
             </div>
             <div class="win-body">
               <span class="win-sci"><a href="https://www.inaturalist.org/taxa/${w.id}" target="_blank" rel="noopener">${escapeHtml(w.name)}</a></span>
@@ -1092,14 +1159,20 @@
             const photo = w.photoUrl
               ? `<img class="cell-photo" src="${escapeHtml(w.photoUrl)}" alt="" loading="lazy" />`
               : `<div class="cell-photo-ph">&#129417;</div>`;
+            const easeCell = w.scored === false
+              ? `<td><span class="ease-inline unscored" title="Couldn't be scored — likely a rate limit">&#8211;</span></td>`
+              : `<td><span class="ease-inline ${w.badge}">${w.ease}%</span></td>`;
+            const countsCell = w.scored === false
+              ? `<td>&#8212;</td>`
+              : `<td>${w.research.toLocaleString()} / ${w.verifiable.toLocaleString()}</td>`;
             return `<tr>
               <td>${photo}</td>
               <td class="sci"><a href="https://www.inaturalist.org/taxa/${w.id}" target="_blank" rel="noopener">${escapeHtml(w.name)}</a></td>
               <td class="common">${escapeHtml(w.common || "")}</td>
               <td style="text-transform: capitalize;">${escapeHtml(w.rank)}</td>
-              <td><span class="ease-inline ${w.badge}">${w.ease}%</span></td>
+              ${easeCell}
               <td>${w.obsCount}</td>
-              <td>${w.research.toLocaleString()} / ${w.verifiable.toLocaleString()}</td>
+              ${countsCell}
               <td class="common">${escapeHtml(w.placeName || "")} ${w.observedOn ? "· " + w.observedOn : ""}</td>
               <td><a href="https://www.inaturalist.org/observations/${w.obsId}" target="_blank" rel="noopener">Obs</a></td>
             </tr>`;
@@ -1126,22 +1199,23 @@
           "Observation link",
           "Taxon link",
         ];
-        const lines = rows.map((w) =>
-          [
+        const lines = rows.map((w) => {
+          const scored = w.scored !== false;
+          return [
             q(w.name),
             q(w.common),
             q(w.rank),
-            w.ease,
-            q(w.badge),
+            scored ? w.ease : "",
+            scored ? q(w.badge) : "unscored",
             w.obsCount,
-            w.research,
-            w.verifiable,
+            scored ? w.research : "",
+            scored ? w.verifiable : "",
             q(w.placeName),
             q(w.observedOn),
             `https://www.inaturalist.org/observations/${w.obsId}`,
             `https://www.inaturalist.org/taxa/${w.id}`,
-          ].join(",")
-        );
+          ].join(",");
+        });
         const csvContent = [headers.join(","), ...lines].join("\r\n");
         const blob = new Blob(["\ufeff" + csvContent], {
           type: "text/csv;charset=utf-8;",
