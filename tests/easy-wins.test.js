@@ -37,16 +37,18 @@ test("STUCK_QUALITY_GRADE is needs_id (casual obs are not verifiable)", () => {
   assert.equal(STUCK_QUALITY_GRADE, "needs_id");
 });
 
-test("fetchTaxonEase reads total_results for verifiable and research grades", async () => {
+test("fetchTaxonEase reads the grade breakdown from one quality_grades call", async () => {
   const seenUrls = [];
   global.fetch = async (url) => {
     seenUrls.push(url);
-    const research = /\bquality_grade=research\b/.test(url);
     return {
       ok: true,
       json: async () => ({
-        total_results: research ? 400 : 434,
-        results: [],
+        total_results: 2,
+        results: [
+          { quality_grade: "research", count: 400 },
+          { quality_grade: "needs_id", count: 34 },
+        ],
       }),
     };
   };
@@ -57,10 +59,11 @@ test("fetchTaxonEase reads total_results for verifiable and research grades", as
     assert.equal(result.research, 400);
     assert.equal(result.ease, computeEase(400, 434));
     assert.equal(result.badge, undefined);
-    assert.ok(seenUrls.every((u) => u.includes("taxon_id=6930")));
-    assert.ok(seenUrls.every((u) => u.includes("verifiable=true")));
-    assert.ok(seenUrls.some((u) => u.includes("quality_grade=research")));
-    assert.ok(seenUrls.some((u) => !u.includes("quality_grade=")));
+    // One call per taxon (the whole point of switching to quality_grades)
+    assert.equal(seenUrls.length, 1);
+    assert.ok(seenUrls[0].includes("/observations/quality_grades"));
+    assert.ok(seenUrls[0].includes("taxon_id=6930"));
+    assert.ok(seenUrls[0].includes("verifiable=true"));
   } finally {
     delete global.fetch;
   }

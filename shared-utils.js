@@ -226,14 +226,30 @@ function registerServiceWorker() {
 
 // ===== API Helpers =====
 
+// Read the shared iNaturalist token (set by draft.html / notifications.html or
+// the paste-token fallback on any page) so requests are counted against the
+// user's account budget rather than an anonymous IP — substantially higher
+// limit. Returns null when running outside the browser or no token present.
+function getToken() {
+  try {
+    if (typeof localStorage !== "undefined") {
+      return localStorage.getItem("inat_jwt_token") || null;
+    }
+  } catch {}
+  return null;
+}
+
 // Fetch JSON from the API. iNaturalist answers 429 when a client sends too
 // many requests per minute; wait and retry (honoring Retry-After when sent)
 // instead of failing the whole run. Server errors are retried the same way.
+// If a JWT is stored, it is sent so the request is counted against the user's
+// (higher) rate budget rather than an anonymous IP.
 async function fetchJSON(url, { retries = 4, baseDelayMs = 1500 } = {}) {
+  const headers = { Accept: "application/json" };
+  const token = getToken();
+  if (token) headers.Authorization = token;
   for (let attempt = 0; ; attempt++) {
-    const response = await fetch(url, {
-      headers: { Accept: "application/json" },
-    });
+    const response = await fetch(url, { headers });
     if (response.ok) {
       return response.json();
     }
@@ -546,16 +562,22 @@ function easeLabel(pct) {
 }
 
 // Count verifiable vs research-grade observations for one taxon. We only need
-// total_results, so ask for a single page. This is the "easy to identify"
-// signal: a species the community reliably confirms is a quick win.
+// the totals, so one /observations/quality_grades?taxon_id=X call returns the
+// grade breakdown (research + needs_id) in a single response — halving the API
+// load versus two per_page=1 probes. This is the "easy to identify" signal: a
+// species the community reliably confirms is a quick win.
 async function fetchTaxonEase(apiBase, taxonId, { delayMs = 0 } = {}) {
-  const url = (grade) =>
-    `${apiBase}/observations?taxon_id=${taxonId}&verifiable=true&per_page=1` +
-    (grade ? `&quality_grade=${grade}` : "");
-  const [ver, res] = await Promise.all([fetchJSON(url("")), fetchJSON(url("research"))]);
+  const data = await fetchJSON(
+    `${apiBase}/observations/quality_grades?taxon_id=${taxonId}&verifiable=true`
+  );
   if (delayMs) await sleep(delayMs);
-  const verifiable = ver.total_results || 0;
-  const research = res.total_results || 0;
+  let verifiable = 0;
+  let research = 0;
+  for (const row of data.results || []) {
+    const count = Number(row.count) || 0;
+    verifiable += count;
+    if (row.quality_grade === "research") research += count;
+  }
   return { taxonId, verifiable, research, ease: computeEase(research, verifiable) };
 }
 
@@ -564,6 +586,7 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     escapeHtml,
     sleep,
+    getToken,
     fetchJSON,
     fetchAllRecords,
     collectInfraspecificTaxa,

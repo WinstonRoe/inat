@@ -225,6 +225,91 @@
         background: #2a2a2a;
       }
 
+      .token-panel {
+        margin-bottom: 16px;
+        background: #f5f5f5;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 14px;
+      }
+      html.dark-mode .token-panel {
+        background: #2a2a2a;
+        border-color: #444;
+      }
+      .token-panel summary {
+        cursor: pointer;
+        font-weight: 600;
+        color: #444;
+      }
+      html.dark-mode .token-panel summary {
+        color: #ccc;
+      }
+      .token-panel[open] summary {
+        margin-bottom: 8px;
+      }
+      .token-hint {
+        color: #666;
+        margin: 8px 0;
+      }
+      html.dark-mode .token-hint {
+        color: #aaa;
+      }
+      .token-status {
+        font-weight: 400;
+        font-size: 12px;
+        color: #74ac00;
+        margin-left: 8px;
+      }
+      .token-link {
+        color: #1976d2;
+        text-decoration: underline;
+      }
+      .token-row {
+        display: flex;
+        gap: 8px;
+        margin: 10px 0;
+        flex-wrap: wrap;
+      }
+      .token-input {
+        flex: 1;
+        min-width: 240px;
+        padding: 8px 10px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        font-family: monospace;
+        font-size: 13px;
+        background: white;
+      }
+      html.dark-mode .token-input {
+        background: #1f1f1f;
+        border-color: #555;
+        color: #eee;
+      }
+      .token-error {
+        color: #c62828;
+        margin-top: 6px;
+      }
+      .token-panel button {
+        padding: 8px 14px;
+        border: 1px solid #bbb;
+        background: white;
+        color: #333;
+        border-radius: 6px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      .token-panel button:hover {
+        background: #f0f0f0;
+      }
+      html.dark-mode .token-panel button {
+        background: #333;
+        border-color: #555;
+        color: #eee;
+      }
+      html.dark-mode .token-panel button:hover {
+        background: #444;
+      }
       .results-head {
         color: #666;
         font-size: 14px;
@@ -706,6 +791,47 @@
         </div>
       </div>
 
+      <details class="token-panel" id="tokenPanel">
+        <summary>
+          Speed up large searches with your iNaturalist account
+          <span id="tokenStatus" class="token-status"></span>
+        </summary>
+        <p class="token-hint">
+          Scoring uses the public iNaturalist API. If you have a lot of pending
+          observations (a few hundred taxa or more), anonymous requests can hit
+          the rate limit. Adding your iNat token raises that ceiling and lets
+          the tool finish in one pass.
+        </p>
+        <a
+          class="token-link"
+          href="https://www.inaturalist.org/users/api_token"
+          target="_blank"
+          rel="noopener"
+          >Open your API token page</a
+        > (log in to iNaturalist first). Copy the long
+        <code>api_token</code> value and paste it below. Tokens are valid for
+        24 hours.
+        <div class="token-row">
+          <input
+            type="password"
+            id="tokenInput"
+            class="token-input"
+            placeholder="Paste your iNaturalist API token (eyJhbGciOi...)"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="connectTokenBtn" class="secondary">Connect</button>
+          <button
+            id="disconnectTokenBtn"
+            class="secondary"
+            style="display: none"
+          >
+            Forget
+          </button>
+        </div>
+        <p id="tokenError" class="token-error" style="display: none"></p>
+      </details>
+
       <div id="resultsHead" class="results-head" style="display: none"></div>
       <div id="resultsContainer"></div>
     </div>
@@ -742,6 +868,62 @@
       const countUnscored = document.getElementById("countUnscored");
       const unscoredChip = document.getElementById("unscoredChip");
       const downloadBtn = document.getElementById("downloadBtn");
+
+      // Optional: an iNat API token (same localStorage key as draft.html /
+      // notifications.html) raises the anonymous rate limit on large runs.
+      const JWT_KEY = "inat_jwt_token";
+      const tokenStatusEl = document.getElementById("tokenStatus");
+      const tokenInputEl = document.getElementById("tokenInput");
+      const connectTokenBtn = document.getElementById("connectTokenBtn");
+      const disconnectTokenBtn = document.getElementById("disconnectTokenBtn");
+      const tokenErrorEl = document.getElementById("tokenError");
+      const tokenPanelEl = document.getElementById("tokenPanel");
+
+      function storeToken(token) {
+        localStorage.setItem(JWT_KEY, token.trim());
+      }
+      function clearToken() {
+        localStorage.removeItem(JWT_KEY);
+      }
+      function tokenStatusText() {
+        const token = localStorage.getItem(JWT_KEY);
+        if (!token) return "";
+        try {
+          const payload = token.split(".")[1];
+          const decoded = JSON.parse(
+            atob(payload.replace(/-/g, "+").replace(/_/g, "/"))
+          );
+          if (!decoded.exp) return " · connected";
+          const hoursLeft = Math.round((decoded.exp * 1000 - Date.now()) / 3600000);
+          if (hoursLeft <= 0) return " · token expired — reconnect";
+          return " · connected (~" + hoursLeft + "h left)";
+        } catch {
+          return " · connected";
+        }
+      }
+      function refreshTokenUI() {
+        tokenStatusEl.textContent = tokenStatusText();
+        const has = !!localStorage.getItem(JWT_KEY);
+        disconnectTokenBtn.style.display = has ? "" : "none";
+        if (!has) tokenErrorEl.style.display = "none";
+      }
+      connectTokenBtn.addEventListener("click", () => {
+        const token = tokenInputEl.value.trim();
+        if (!token) {
+          tokenErrorEl.textContent = "Paste a token first.";
+          tokenErrorEl.style.display = "";
+          return;
+        }
+        storeToken(token);
+        tokenInputEl.value = "";
+        refreshTokenUI();
+      });
+      disconnectTokenBtn.addEventListener("click", () => {
+        clearToken();
+        tokenInputEl.value = "";
+        refreshTokenUI();
+      });
+      refreshTokenUI();
 
       let currentView = "grid";
       let activeBadge = "";
@@ -999,10 +1181,11 @@
 
           const taxonRows = Array.from(byTaxon.values());
 
-          // Score each taxon's ease one at a time (2 API calls each), with a
-          // short pause between taxa. Concurrent bursts of requests trip the
-          // iNaturalist rate limiter and the failed lookups are misread as
-          // "hard" (0%), so we trade a little speed for reliability.
+          // Score each taxon's ease one at a time (a single quality_grades call
+          // each), with a short pause between taxa. Concurrent bursts of requests
+          // trip the iNaturalist rate limiter and the failed lookups are misread
+          // as "hard" (0%), so we trade a little speed for reliability. A stored
+          // iNat token (see the panel above) raises the limit for big runs.
           for (let i = 0; i < taxonRows.length; i++) {
             const row = taxonRows[i];
             const scored = i / taxonRows.length;
