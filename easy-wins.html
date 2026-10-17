@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Easy Wins - iNaturalist</title>
+    <script>
+      // Runs before first paint so dark pages never flash white;
+      // dark-mode.js (end of body) syncs <body> and builds the toggle.
+      if (localStorage.getItem("darkMode") === "true") {
+        document.documentElement.classList.add("dark-mode");
+      }
+    </script>
+    <link rel="icon" href="favicon.ico" />
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#74ac00" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="apple-touch-icon" href="logo.png" />
+    <link
+      rel="canonical"
+      href="https://glauberramos.github.io/inat/easy-wins"
+    />
+    <meta
+      name="description"
+      content="Among your pending identifications, find the species that are easiest to confirm — the ones the community reliably research-grades — as a ranked quick-win work queue. Filter by place, taxon, or date, and export as CSV."
+    />
+    <meta
+      property="og:title"
+      content="Easy Wins - iNaturalist Quick-Win ID Queue"
+    />
+    <meta
+      property="og:description"
+      content="Among your pending identifications, find the species easiest to confirm to research grade."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://glauberramos.github.io/inat/easy-wins" />
+    <meta property="og:site_name" content="iNaturalist Tools" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="https://glauberramos.github.io/inat/logo.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:image" content="https://glauberramos.github.io/inat/logo.png" />
+    <meta name="twitter:title" content="Easy Wins - iNaturalist" />
+    <meta name="twitter:description" content="Find the pending IDs easiest to confirm to research grade." />
+    <meta name="robots" content="index, follow" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="dark-mode.css?v=8" />
+    <style>
+      .back-button {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        background: #2d2d2d;
+        color: #ccc;
+        text-decoration: none;
+        font-size: 0.8rem;
+        font-weight: 500;
+        padding: 4px 10px;
+        border-radius: 6px;
+        z-index: 1000;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        transition: background 0.2s;
+      }
+      html.dark-mode .back-button {
+        background: #2b2b2b;
+        border: 1px solid #444;
+      }
+      .back-button:hover {
+        background: #444;
+      }
+
+      .summary-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        border: 1px solid #ddd;
+        padding: 15px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+      html.dark-mode .summary-card {
+        background: #2b2b2b;
+        border-color: #444;
+      }
+      .summary-search {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .controls label {
+        color: #555;
+        font-size: 14px;
+        font-weight: 500;
+      }
+      html.dark-mode .controls label {
+        color: #bbb;
+      }
+      .controls select,
+      .controls input[type="text"] {
+        padding: 8px 12px;
+        border: 2px solid #ddd;
+        border-radius: 5px;
+        font-size: 14px;
+        background: white;
+        cursor: pointer;
+      }
+      html.dark-mode .controls select,
+      html.dark-mode .controls input[type="text"] {
+        background: #262626;
+        border-color: #444;
+        color: #ddd;
+      }
+
+      .view-buttons {
+        display: flex;
+        gap: 4px;
+        background: #f0f0f0;
+        border-radius: 6px;
+        padding: 3px;
+      }
+      html.dark-mode .view-buttons {
+        background: #333;
+      }
+      .view-btn {
+        padding: 6px 14px;
+        border: none;
+        background: transparent;
+        border-radius: 4px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        color: #666;
+        transition: background 0.2s, color 0.2s;
+      }
+      html.dark-mode .view-btn {
+        color: #aaa;
+      }
+      .view-btn.active {
+        background: #74ac00;
+        color: white;
+      }
+
+      .stat-chips {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .stat-chip {
+        border: 2px solid transparent;
+        border-radius: 20px;
+        padding: 4px 12px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        background: #f0f0f0;
+        color: #444;
+      }
+      html.dark-mode .stat-chip {
+        background: #333;
+        color: #ccc;
+      }
+      .stat-chip.easy {
+        color: #33691e;
+        background: #f1f8e9;
+      }
+      .stat-chip.easy.active {
+        border-color: #74ac00;
+      }
+      .stat-chip.medium {
+        color: #7a5b00;
+        background: #fff8e1;
+      }
+      .stat-chip.medium.active {
+        border-color: #f9a825;
+      }
+      .stat-chip.hard {
+        color: #c62828;
+        background: #ffebee;
+      }
+      .stat-chip.hard.active {
+        border-color: #e57373;
+      }
+      .stat-chip.all {
+        color: #37474f;
+        background: #eceff1;
+      }
+      .stat-chip.all.active {
+        border-color: #607d8b;
+      }
+      html.dark-mode .stat-chip.easy {
+        color: #c5e1a5;
+        background: #26331f;
+      }
+      html.dark-mode .stat-chip.medium {
+        color: #ffe082;
+        background: #3a2f16;
+      }
+      html.dark-mode .stat-chip.hard {
+        color: #ef9a9a;
+        background: #3a1f1f;
+      }
+      html.dark-mode .stat-chip.all {
+        color: #b0bec5;
+        background: #263238;
+      }
+
+      .results-head {
+        color: #666;
+        font-size: 14px;
+        margin-bottom: 12px;
+      }
+      html.dark-mode .results-head {
+        color: #999;
+      }
+
+      .wins-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 16px;
+      }
+
+      .win-card {
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+        transition: transform 0.15s, box-shadow 0.15s;
+      }
+      .win-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+      }
+      html.dark-mode .win-card {
+        background: #2b2b2b;
+        border-color: #444;
+      }
+      .win-photo-wrap {
+        position: relative;
+        background: #eee;
+      }
+      html.dark-mode .win-photo-wrap {
+        background: #3a3a3a;
+      }
+      .win-photo {
+        width: 100%;
+        aspect-ratio: 3 / 2;
+        object-fit: cover;
+        display: block;
+      }
+      .win-photo-placeholder {
+        width: 100%;
+        aspect-ratio: 3 / 2;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #bbb;
+        font-size: 34px;
+      }
+      .ease-badge {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+      }
+      .ease-badge.easy {
+        background: #74ac00;
+        color: white;
+      }
+      .ease-badge.medium {
+        background: #f9a825;
+        color: #3a2f00;
+      }
+      .ease-badge.hard {
+        background: #e57373;
+        color: #fff;
+      }
+      .win-body {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        padding: 10px 12px 14px;
+        min-width: 0;
+        flex: 1;
+      }
+      .win-sci {
+        font-style: italic;
+        font-weight: 600;
+        line-height: 1.25;
+        overflow-wrap: anywhere;
+      }
+      .win-sci a {
+        color: inherit;
+        text-decoration: none;
+      }
+      .win-sci a:hover {
+        text-decoration: underline;
+      }
+      .win-common {
+        color: #666;
+        font-size: 14px;
+        overflow-wrap: anywhere;
+      }
+      html.dark-mode .win-common {
+        color: #999;
+      }
+      .win-rank {
+        color: #888;
+        font-size: 12px;
+        text-transform: capitalize;
+      }
+      html.dark-mode .win-rank {
+        color: #888;
+      }
+      .win-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        margin-top: auto;
+        padding-top: 8px;
+        font-size: 13px;
+        color: #777;
+      }
+      html.dark-mode .win-meta {
+        color: #999;
+      }
+      .win-meta a {
+        color: #74ac00;
+        text-decoration: none;
+      }
+      .win-meta a:hover {
+        text-decoration: underline;
+      }
+
+      .wins-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      html.dark-mode .wins-table {
+        background: #2b2b2b;
+      }
+      .wins-table thead {
+        background: #f5f5f5;
+        border-bottom: 2px solid #ddd;
+      }
+      html.dark-mode .wins-table thead {
+        background: #333;
+        border-color: #444;
+      }
+      .wins-table th {
+        padding: 10px 12px;
+        text-align: left;
+        font-weight: 600;
+        color: #2c3e50;
+        font-size: 14px;
+      }
+      html.dark-mode .wins-table th {
+        color: #ccc;
+      }
+      .wins-table td {
+        padding: 8px 12px;
+        border-bottom: 1px solid #eee;
+        font-size: 14px;
+        vertical-align: middle;
+      }
+      html.dark-mode .wins-table td {
+        border-color: #3a3a3a;
+      }
+      .wins-table tbody tr:hover {
+        background: #f9f9f9;
+      }
+      html.dark-mode .wins-table tbody tr:hover {
+        background: #242424;
+      }
+      .wins-table .cell-photo {
+        width: 48px;
+        height: 48px;
+        object-fit: cover;
+        border-radius: 4px;
+        display: block;
+      }
+      .wins-table .cell-photo-ph {
+        width: 48px;
+        height: 48px;
+        background: #f5f5f5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: #bbb;
+        border-radius: 4px;
+      }
+      html.dark-mode .wins-table .cell-photo-ph {
+        background: #3a3a3a;
+      }
+      .wins-table .sci {
+        font-style: italic;
+        font-weight: 600;
+      }
+      .wins-table .sci a {
+        color: inherit;
+        text-decoration: none;
+      }
+      .wins-table .sci a:hover {
+        text-decoration: underline;
+      }
+      .wins-table .common {
+        color: #666;
+        font-size: 13px;
+      }
+      html.dark-mode .wins-table .common {
+        color: #999;
+      }
+      .ease-inline {
+        font-size: 12px;
+        font-weight: 700;
+        padding: 2px 9px;
+        border-radius: 10px;
+        text-transform: uppercase;
+      }
+      .ease-inline.easy {
+        background: #f1f8e9;
+        color: #33691e;
+      }
+      .ease-inline.medium {
+        background: #fff8e1;
+        color: #7a5b00;
+      }
+      .ease-inline.hard {
+        background: #ffebee;
+        color: #c62828;
+      }
+      html.dark-mode .ease-inline.easy {
+        background: #26331f;
+        color: #c5e1a5;
+      }
+      html.dark-mode .ease-inline.medium {
+        background: #3a2f16;
+        color: #ffe082;
+      }
+      html.dark-mode .ease-inline.hard {
+        background: #3a1f1f;
+        color: #ef9a9a;
+      }
+
+      .loading {
+        color: #666;
+        font-size: 14px;
+        margin: 8px 0;
+      }
+      html.dark-mode .loading {
+        color: #aaa;
+      }
+
+      /* Custom feedback button */
+      .feedback-button {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: #74ac00;
+        color: white;
+        border: none;
+        border-radius: 20px;
+        padding: 10px 16px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        z-index: 999;
+        transition: all 0.3s;
+      }
+      .feedback-button:hover {
+        background: #5d8a00;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+      }
+
+      @media (max-width: 768px) {
+        .summary-card {
+          padding: 15px;
+        }
+        .summary-search {
+          flex-direction: column;
+          width: 100%;
+          gap: 10px;
+        }
+        .summary-search .username-search-container {
+          width: 100% !important;
+        }
+        .summary-search button {
+          width: 100%;
+        }
+        .summary-search div[style*="gap: 8px"] {
+          width: 100%;
+        }
+        .summary-search div[style*="gap: 8px"] input[type="date"] {
+          flex: 1;
+          min-width: 0;
+        }
+        .controls {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 10px;
+        }
+        .controls label {
+          display: none;
+        }
+        .controls select,
+        .controls input[type="text"] {
+          width: 100%;
+        }
+        .view-buttons {
+          width: 100%;
+        }
+        .view-btn {
+          flex: 1;
+        }
+        .wins-table {
+          display: block;
+          overflow-x: auto;
+          white-space: nowrap;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a href="/inat" class="back-button">
+      <span style="font-size: 1rem;">&#8592;</span> More tools
+    </a>
+    <div class="container">
+      <header>
+        <div class="header-content">
+          <div class="title-container">
+            <img src="logo.png" alt="iNaturalist Logo" class="logo" />
+            <h1>Easy Wins on iNaturalist</h1>
+          </div>
+          <p class="description">
+            Your pending identifications, ranked by how easy the species are to
+            confirm. The easier a species is to research-grade — the more
+            reliably the community agrees on it — the more likely it is one
+            quick check away from done.
+          </p>
+        </div>
+      </header>
+
+      <div class="summary-card">
+        <div class="summary-search">
+          <div class="username-search-container" style="flex: 1; min-width: 180px;">
+            <input
+              type="text"
+              id="usernameInput"
+              placeholder="Username"
+              autocomplete="off"
+              style="width: 100%"
+            />
+            <div id="usernameAutocomplete" class="username-autocomplete"></div>
+          </div>
+          <div class="username-search-container" style="flex: 1; min-width: 160px;">
+            <input
+              type="text"
+              id="locationInput"
+              placeholder="Place or project (optional)"
+              autocomplete="off"
+              style="width: 100%"
+            />
+            <div id="locationAutocomplete" class="username-autocomplete"></div>
+            <input type="hidden" id="placeId" value="" />
+            <input type="hidden" id="projectId" value="" />
+          </div>
+          <div class="username-search-container" style="flex: 1; min-width: 160px;">
+            <input
+              type="text"
+              id="taxonInput"
+              placeholder="Taxon (optional)"
+              autocomplete="off"
+              style="width: 100%"
+            />
+            <div id="taxonAutocomplete" class="username-autocomplete"></div>
+            <input type="hidden" id="taxonId" value="" />
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center; flex: 1; min-width: 160px;">
+            <input
+              type="date"
+              id="dateFrom"
+              title="Initial date"
+              style="padding: 8px 12px; border: 2px solid #ddd; border-radius: 5px; font-size: 14px; flex: 1; min-width: 0;"
+            />
+            <span style="color: #666; font-size: 14px;">to</span>
+            <input
+              type="date"
+              id="dateTo"
+              title="Final date"
+              style="padding: 8px 12px; border: 2px solid #ddd; border-radius: 5px; font-size: 14px; flex: 1; min-width: 0;"
+            />
+          </div>
+          <select
+            id="languageSelect"
+            title="Language for common names"
+            style="padding: 8px 12px; font-size: 14px;"
+          >
+            <option value="en" selected>English</option>
+            <option value="es">Spanish</option>
+            <option value="fr">French</option>
+            <option value="de">German</option>
+            <option value="pt">Portuguese</option>
+            <option value="it">Italian</option>
+            <option value="nl">Dutch</option>
+            <option value="ru">Russian</option>
+            <option value="ja">Japanese</option>
+            <option value="zh">Chinese</option>
+          </select>
+          <button id="searchButton">Find easy wins</button>
+        </div>
+
+        <div class="controls" id="controls" style="display: none">
+          <label for="sortSelect">Sort:</label>
+          <select id="sortSelect">
+            <option value="ease-desc" selected>Easiest first</option>
+            <option value="ease-asc">Hardest first</option>
+            <option value="obs-desc">Most pending first</option>
+            <option value="name">Name A–Z</option>
+          </select>
+          <div class="view-buttons">
+            <button id="gridViewBtn" class="view-btn active">Grid</button>
+            <button id="tableViewBtn" class="view-btn">Table</button>
+          </div>
+          <div class="stat-chips" id="statChips" style="display: none">
+            <button type="button" class="stat-chip all active" data-ease="">All</button>
+            <button type="button" class="stat-chip easy" data-ease="easy">
+              <span class="stat-value" id="countEasy">0</span> easy
+            </button>
+            <button type="button" class="stat-chip medium" data-ease="medium">
+              <span class="stat-value" id="countMedium">0</span> medium
+            </button>
+            <button type="button" class="stat-chip hard" data-ease="hard">
+              <span class="stat-value" id="countHard">0</span> hard
+            </button>
+          </div>
+          <button
+            id="downloadBtn"
+            style="display: none; padding: 8px 16px; font-size: 14px;"
+            title="Export the current view as CSV"
+          >
+            Download CSV
+          </button>
+        </div>
+
+        <div id="errorMessage" style="display: none; color: #c62828;"></div>
+        <div class="loading" id="loading" style="display: none">
+          Loading&hellip;
+        </div>
+      </div>
+
+      <div id="resultsHead" class="results-head" style="display: none"></div>
+      <div id="resultsContainer"></div>
+    </div>
+
+    <button class="feedback-button" id="feedbackBtn">Send feedback</button>
+
+    <script src="constants.js"></script>
+    <script src="shared-utils.js?v=4"></script>
+    <script src="location-autocomplete.js?v=2"></script>
+    <script>
+      const usernameInput = document.getElementById("usernameInput");
+      const usernameAutocomplete = document.getElementById("usernameAutocomplete");
+      const locationInput = document.getElementById("locationInput");
+      const locationAutocomplete = document.getElementById("locationAutocomplete");
+      const placeIdInput = document.getElementById("placeId");
+      const projectIdInput = document.getElementById("projectId");
+      const taxonInput = document.getElementById("taxonInput");
+      const taxonAutocomplete = document.getElementById("taxonAutocomplete");
+      const taxonIdInput = document.getElementById("taxonId");
+      const dateFrom = document.getElementById("dateFrom");
+      const dateTo = document.getElementById("dateTo");
+      const searchButton = document.getElementById("searchButton");
+      const loading = document.getElementById("loading");
+      const resultsContainer = document.getElementById("resultsContainer");
+      const resultsHead = document.getElementById("resultsHead");
+      const controls = document.getElementById("controls");
+      const sortSelect = document.getElementById("sortSelect");
+      const gridViewBtn = document.getElementById("gridViewBtn");
+      const tableViewBtn = document.getElementById("tableViewBtn");
+      const statChips = document.getElementById("statChips");
+      const countEasy = document.getElementById("countEasy");
+      const countMedium = document.getElementById("countMedium");
+      const countHard = document.getElementById("countHard");
+      const downloadBtn = document.getElementById("downloadBtn");
+
+      let currentView = "grid";
+      let activeBadge = "";
+      // Resolved per-taxon wins, each shaped like:
+      // { id, name, common, rank, photoUrl, obsId, placeName, observedOn,
+      //   obsCount, verifiable, research, ease, badge }
+      let wins = [];
+
+      usernameInput.value = initUsername(usernameInput) || "";
+      initLanguage(document.getElementById("languageSelect"));
+      initLocationAutocomplete(
+        locationInput,
+        locationAutocomplete,
+        placeIdInput,
+        {
+          persistToStorage: true,
+          loadFromStorage: false,
+          loadFromUrl: true,
+          updateUrlOnSelect: true,
+          includeProjects: true,
+          projectIdInput: projectIdInput,
+        }
+      );
+
+      let searchTimeout = null;
+      usernameInput.addEventListener("input", (e) => {
+        clearTimeout(searchTimeout);
+        const query = e.target.value.trim();
+        if (query.length < 2) {
+          usernameAutocomplete.innerHTML = "";
+          usernameAutocomplete.style.display = "none";
+          return;
+        }
+        searchTimeout = setTimeout(async () => {
+          try {
+            const data = await fetchJSON(
+              `${API_BASE}/users/autocomplete?q=${encodeURIComponent(query)}`
+            );
+            if (data.results && data.results.length > 0) {
+              usernameAutocomplete.innerHTML = data.results
+                .slice(0, 10)
+                .map((u) =>
+                  `<div class="username-suggestion" data-login="${escapeHtml(u.login)}">
+                    <div class="username-name">${escapeHtml(u.login)}</div>
+                    <div class="username-info">${(u.observations_count || 0).toLocaleString()} observations</div>
+                  </div>`
+                )
+                .join("");
+              usernameAutocomplete.style.display = "block";
+              usernameAutocomplete
+                .querySelectorAll(".username-suggestion")
+                .forEach((item) =>
+                  item.addEventListener("click", () => {
+                    usernameInput.value = item.dataset.login;
+                    usernameAutocomplete.innerHTML = "";
+                    usernameAutocomplete.style.display = "none";
+                    search();
+                  })
+                );
+            } else {
+              usernameAutocomplete.innerHTML = "";
+              usernameAutocomplete.style.display = "none";
+            }
+          } catch (err) {
+            usernameAutocomplete.innerHTML = "";
+            usernameAutocomplete.style.display = "none";
+          }
+        }, 300);
+      });
+
+      let taxonSearchTimeout = null;
+      taxonInput.addEventListener("input", (e) => {
+        clearTimeout(taxonSearchTimeout);
+        const query = e.target.value.trim();
+        taxonIdInput.value = "";
+        if (query.length < 2) {
+          taxonAutocomplete.innerHTML = "";
+          taxonAutocomplete.style.display = "none";
+          return;
+        }
+        taxonSearchTimeout = setTimeout(async () => {
+          try {
+            const data = await fetchJSON(
+              `${API_BASE}/taxa/autocomplete?q=${encodeURIComponent(query)}&per_page=10&rank=kingdom,phylum,class,order,family,genus,subgenus`
+            );
+            if (data.results && data.results.length > 0) {
+              taxonAutocomplete.innerHTML = data.results
+                .map((t) =>
+                  `<div class="username-suggestion" data-taxon-id="${t.id}" data-taxon-name="${escapeHtml(t.name)}">
+                    <div class="username-name">${escapeHtml(t.preferred_common_name || t.name)}</div>
+                    <div class="username-info">${escapeHtml(t.rank)}${t.preferred_common_name ? " - " + escapeHtml(t.name) : ""}</div>
+                  </div>`
+                )
+                .join("");
+              taxonAutocomplete.style.display = "block";
+              taxonAutocomplete
+                .querySelectorAll(".username-suggestion")
+                .forEach((item) =>
+                  item.addEventListener("click", () => {
+                    taxonInput.value = item.dataset.taxonName;
+                    taxonIdInput.value = item.dataset.taxonId;
+                    taxonAutocomplete.innerHTML = "";
+                    taxonAutocomplete.style.display = "none";
+                  })
+                );
+            } else {
+              taxonAutocomplete.innerHTML = "";
+              taxonAutocomplete.style.display = "none";
+            }
+          } catch (err) {
+            taxonAutocomplete.innerHTML = "";
+            taxonAutocomplete.style.display = "none";
+          }
+        }, 300);
+      });
+
+      document.addEventListener("click", (e) => {
+        if (
+          !usernameInput.contains(e.target) &&
+          !usernameAutocomplete.contains(e.target)
+        )
+          usernameAutocomplete.style.display = "none";
+        if (!taxonInput.contains(e.target) && !taxonAutocomplete.contains(e.target))
+          taxonAutocomplete.style.display = "none";
+      });
+
+      searchButton.addEventListener("click", search);
+      usernameInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") search();
+      });
+
+      gridViewBtn.addEventListener("click", () => {
+        currentView = "grid";
+        gridViewBtn.classList.add("active");
+        tableViewBtn.classList.remove("active");
+        render();
+      });
+      tableViewBtn.addEventListener("click", () => {
+        currentView = "table";
+        tableViewBtn.classList.add("active");
+        gridViewBtn.classList.remove("active");
+        render();
+      });
+      sortSelect.addEventListener("change", render);
+      statChips.querySelectorAll(".stat-chip").forEach((chip) =>
+        chip.addEventListener("click", () => {
+          activeBadge = chip.dataset.ease || "";
+          statChips.querySelectorAll(".stat-chip").forEach((c) =>
+            c.classList.toggle("active", c === chip)
+          );
+          render();
+        })
+      );
+
+      async function resolveUser(username) {
+        const data = await fetchJSON(
+          `${API_BASE}/users/autocomplete?q=${encodeURIComponent(username)}`
+        );
+        const match =
+          (data.results || []).find(
+            (u) => u.login.toLowerCase() === username.toLowerCase()
+          ) || (data.results || [])[0];
+        return match || null;
+      }
+
+      // Resolve the distinct taxa in a user's pending observations, then score
+      // each one's ease. We fetch the user's needs_id observations (not the
+      // backbone) so every taxon line can deep-link to one of their actual
+      // stuck observations.
+      async function search() {
+        const username = usernameInput.value.trim();
+        if (!username) {
+          showError("errorMessage", "Enter a username to find your easy wins");
+          return;
+        }
+        hideError("errorMessage");
+        loading.style.display = "block";
+        wins = [];
+        resultsContainer.innerHTML = "";
+        resultsHead.style.display = "none";
+        resultsHead.textContent = "";
+        downloadBtn.style.display = "none";
+
+        try {
+          const user = await resolveUser(username);
+          if (!user) {
+            loading.style.display = "none";
+            showError("errorMessage", "User not found");
+            return;
+          }
+          saveUsername(username);
+          updateUrlWithUsername(username);
+
+          let params = `user_id=${user.id}&quality_grade=${STUCK_QUALITY_GRADE}`;
+          const placeId = placeIdInput.value;
+          const projectId = projectIdInput.value;
+          if (placeId) params += `&place_id=${placeId}`;
+          if (projectId) params += `&project_id=${projectId}`;
+          if (taxonIdInput.value) params += `&taxon_id=${taxonIdInput.value}`;
+          if (dateFrom.value && dateTo.value)
+            params += `&d1=${dateFrom.value}&d2=${dateTo.value}`;
+          const lang = document.getElementById("languageSelect").value;
+          if (lang && lang !== "en") params += `&locale=${lang}`;
+
+          const records = await fetchAllRecords(
+            `${API_BASE}/observations?${params}`,
+            {
+              perPage: 200,
+              onPage: (got, total) =>
+                updateProgress(
+                  total ? Math.round((got / total) * 100) : 0,
+                  `${got.toLocaleString()} observations`,
+                  total ? `${total.toLocaleString()} total` : ""
+                ),
+            }
+          );
+
+          if (!records.length) {
+            loading.style.display = "none";
+            showWelcome(
+              "errorMessage",
+              "No pending identifications found for that filter yet — nice work."
+            );
+            return;
+          }
+
+          // Dedupe to one entry per taxon, keeping a representative
+          // observation to deep-link and a count of how many are stuck.
+          const byTaxon = new Map();
+          for (const obs of records) {
+            const t = obs.taxon;
+            if (!t || !t.id) continue;
+            const existing = byTaxon.get(t.id);
+            if (existing) {
+              existing.obsCount += 1;
+              continue;
+            }
+            byTaxon.set(t.id, {
+              id: t.id,
+              name: t.name,
+              common: t.preferred_common_name || "",
+              rank: t.rank || "unknown",
+              photoUrl:
+                t.default_photo && (t.default_photo.medium_url || t.default_photo.small_url) || "",
+              obsId: obs.id,
+              placeName: obs.place_name || "",
+              observedOn: obs.observed_on || "",
+              obsCount: 1,
+              verifiable: 0,
+              research: 0,
+              ease: 0,
+              badge: "hard",
+            });
+          }
+
+          const taxonRows = Array.from(byTaxon.values());
+
+          // Score each taxon's ease concurrently (2 calls each), throttled.
+          const concurrency = 6;
+          let cursor = 0;
+          const workers = Array.from({ length: concurrency }, async () => {
+            while (cursor < taxonRows.length) {
+              const row = taxonRows[cursor++];
+              try {
+                const ease = await fetchTaxonEase(API_BASE, row.id);
+                row.verifiable = ease.verifiable;
+                row.research = ease.research;
+                row.ease = ease.ease;
+                row.badge = easeLabel(ease.ease);
+              } catch (err) {
+                row.badge = "hard";
+              }
+            }
+          });
+          await Promise.all(workers);
+
+          wins = taxonRows;
+          render();
+        } catch (err) {
+          showError("errorMessage", "Something went wrong: " + err.message);
+        } finally {
+          loading.style.display = "none";
+          const bar = document.getElementById("progressBar");
+          const text = document.getElementById("progressText");
+          if (bar) bar.style.width = "0";
+          if (text) text.textContent = "";
+        }
+      }
+
+      function sortedWins() {
+        const list = activeBadge ? wins.filter((w) => w.badge === activeBadge) : wins.slice();
+        const sort = sortSelect.value;
+        list.sort((a, b) => {
+          if (sort === "ease-asc") return a.ease - b.ease || a.name.localeCompare(b.name);
+          if (sort === "obs-desc") return b.obsCount - a.obsCount || b.ease - a.ease;
+          if (sort === "name") return a.name.localeCompare(b.name);
+          return b.ease - a.ease || a.name.localeCompare(b.name);
+        });
+        return list;
+      }
+
+      function render() {
+        if (!wins.length) return;
+        controls.style.display = "flex";
+        statChips.style.display = "flex";
+
+        const easy = wins.filter((w) => w.badge === "easy").length;
+        const medium = wins.filter((w) => w.badge === "medium").length;
+        const hard = wins.filter((w) => w.badge === "hard").length;
+        countEasy.textContent = easy;
+        countMedium.textContent = medium;
+        countHard.textContent = hard;
+
+        const shown = sortedWins();
+        resultsHead.style.display = "block";
+        resultsHead.textContent = `${shown.length} of ${wins.length} species to confirm`;
+        downloadBtn.style.display = "inline-block";
+
+        if (shown.length === 0) {
+          resultsContainer.innerHTML = "";
+          showWelcome(
+            "errorMessage",
+            "No species in that category for this search."
+          );
+          return;
+        }
+        hideError("errorMessage");
+
+        if (currentView === "grid") {
+          resultsContainer.classList.remove("table-view");
+          resultsContainer.innerHTML =
+            '<div class="wins-grid">' + shown.map(renderCard).join("") + "</div>";
+        } else {
+          resultsContainer.classList.add("table-view");
+          resultsContainer.innerHTML = renderTable(shown);
+        }
+      }
+
+      function renderCard(w) {
+        const photo = w.photoUrl
+          ? `<img class="win-photo" src="${escapeHtml(w.photoUrl)}" alt="" loading="lazy" />`
+          : `<div class="win-photo-placeholder">&#129417;</div>`;
+        return `
+          <div class="win-card">
+            <div class="win-photo-wrap">
+              ${photo}
+              <span class="ease-badge ${w.badge}">${w.ease}%</span>
+            </div>
+            <div class="win-body">
+              <span class="win-sci"><a href="https://www.inaturalist.org/taxa/${w.id}" target="_blank" rel="noopener">${escapeHtml(w.name)}</a></span>
+              ${w.common ? `<span class="win-common">${escapeHtml(w.common)}</span>` : ""}
+              <span class="win-rank">${escapeHtml(w.rank)} · ${w.obsCount} ${w.obsCount === 1 ? "pending" : "pending"}</span>
+              <div class="win-meta">
+                <span>${w.observedOn || ""}${w.placeName ? " · " + escapeHtml(w.placeName) : ""}</span>
+                <a href="https://www.inaturalist.org/observations/${w.obsId}" target="_blank" rel="noopener">Open observation</a>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      function renderTable(rows) {
+        const head = `
+          <thead>
+            <tr>
+              <th></th>
+              <th>Species</th>
+              <th>Common</th>
+              <th>Rank</th>
+              <th>Ease</th>
+              <th>Pending</th>
+              <th>Confirmed / verifiable</th>
+              <th>Where</th>
+              <th></th>
+            </tr>
+          </thead>
+        `;
+        const body = rows
+          .map((w) => {
+            const photo = w.photoUrl
+              ? `<img class="cell-photo" src="${escapeHtml(w.photoUrl)}" alt="" loading="lazy" />`
+              : `<div class="cell-photo-ph">&#129417;</div>`;
+            return `<tr>
+              <td>${photo}</td>
+              <td class="sci"><a href="https://www.inaturalist.org/taxa/${w.id}" target="_blank" rel="noopener">${escapeHtml(w.name)}</a></td>
+              <td class="common">${escapeHtml(w.common || "")}</td>
+              <td style="text-transform: capitalize;">${escapeHtml(w.rank)}</td>
+              <td><span class="ease-inline ${w.badge}">${w.ease}%</span></td>
+              <td>${w.obsCount}</td>
+              <td>${w.research.toLocaleString()} / ${w.verifiable.toLocaleString()}</td>
+              <td class="common">${escapeHtml(w.placeName || "")} ${w.observedOn ? "· " + w.observedOn : ""}</td>
+              <td><a href="https://www.inaturalist.org/observations/${w.obsId}" target="_blank" rel="noopener">Obs</a></td>
+            </tr>`;
+          })
+          .join("");
+        return `<table class="wins-table">${head}<tbody>${body}</tbody></table>`;
+      }
+
+      function downloadCSV() {
+        if (!wins.length) return;
+        const rows = sortedWins();
+        const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+        const headers = [
+          "Species",
+          "Common name",
+          "Rank",
+          "Ease %",
+          "Category",
+          "Pending obs",
+          "Research-grade",
+          "Verifiable",
+          "Place",
+          "Observed on",
+          "Observation link",
+          "Taxon link",
+        ];
+        const lines = rows.map((w) =>
+          [
+            q(w.name),
+            q(w.common),
+            q(w.rank),
+            w.ease,
+            q(w.badge),
+            w.obsCount,
+            w.research,
+            w.verifiable,
+            q(w.placeName),
+            q(w.observedOn),
+            `https://www.inaturalist.org/observations/${w.obsId}`,
+            `https://www.inaturalist.org/taxa/${w.id}`,
+          ].join(",")
+        );
+        const csvContent = [headers.join(","), ...lines].join("\r\n");
+        const blob = new Blob(["\ufeff" + csvContent], {
+          type: "text/csv;charset=utf-8;",
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        const stamp = new Date().toISOString().split("T")[0];
+        link.download = `easy-wins-${stamp}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+      }
+      downloadBtn.addEventListener("click", downloadCSV);
+
+      initFeedbackButton ? initFeedbackButton() : null;
+      if (typeof registerServiceWorker === "function") registerServiceWorker();
+    </script>
+    <script
+      defer
+      data-domain="glauberramos.github.io/inat"
+      src="https://plausible.io/js/script.js"
+    ></script>
+    <script src="dark-mode.js?v=2"></script>
+  </body>
+</html>

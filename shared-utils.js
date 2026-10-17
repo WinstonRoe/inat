@@ -523,6 +523,42 @@ function collectTaxonomyExtras(rows, knownIds) {
     }));
 }
 
+// ===== Easy-to-identify helpers =====
+
+// A "stuck" observation is one that is not yet research grade but can still
+// reach it. (A casual observation isn't verifiable, so it can't.)
+const STUCK_QUALITY_GRADE = "needs_id";
+
+// Ease score = share of verifiable observations for a taxon that the community
+// confirms to research grade, as 0-100 (rounded). 0 when there is no verifiable
+// data so we never divide by zero — no data reads as "hard", never "easy".
+function computeEase(researchTotal, verifiableTotal) {
+  if (!verifiableTotal || verifiableTotal <= 0) return 0;
+  const eased = (researchTotal / verifiableTotal) * 100;
+  return Math.max(0, Math.min(100, Math.round(eased)));
+}
+
+// Bucket an ease % into a coarse label for the stat-chips filter.
+function easeLabel(pct) {
+  if (pct >= 80) return "easy";
+  if (pct >= 40) return "medium";
+  return "hard";
+}
+
+// Count verifiable vs research-grade observations for one taxon. We only need
+// total_results, so ask for a single page. This is the "easy to identify"
+// signal: a species the community reliably confirms is a quick win.
+async function fetchTaxonEase(apiBase, taxonId, { delayMs = 0 } = {}) {
+  const url = (grade) =>
+    `${apiBase}/observations?taxon_id=${taxonId}&verifiable=true&per_page=1` +
+    (grade ? `&quality_grade=${grade}` : "");
+  const [ver, res] = await Promise.all([fetchJSON(url("")), fetchJSON(url("research"))]);
+  if (delayMs) await sleep(delayMs);
+  const verifiable = ver.total_results || 0;
+  const research = res.total_results || 0;
+  return { taxonId, verifiable, research, ease: computeEase(research, verifiable) };
+}
+
 // Allow unit tests (Node) to import the pure helpers; no-op in the browser.
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
@@ -542,5 +578,9 @@ if (typeof module !== "undefined" && module.exports) {
     subtractMonths,
     resolveDateRange,
     buildDateRangeParams,
+    STUCK_QUALITY_GRADE,
+    computeEase,
+    easeLabel,
+    fetchTaxonEase,
   };
 }

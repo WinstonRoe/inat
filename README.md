@@ -22,6 +22,7 @@ A suite of companion tools for [iNaturalist](https://www.inaturalist.org) — ex
 - **Species Identified** — browse species you've identified for others
 - **First Observer** / **First Identifier** — species you were the first to record or identify on iNaturalist
 - **Top Genera** — your observations grouped by the best-observed rank (genus, family, order, class, phylum, or kingdom), so you can see which genera are your strongest and which you're only sampling — with CSV export
+- **Easy Wins** — your pending IDs ranked by how easy the species are to confirm to research grade (the share of the species' verifiable obs the community already research-grades), as a quick-win work queue with deep links and CSV export
 
 ### Compare & discover
 
