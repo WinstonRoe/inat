@@ -21,6 +21,7 @@ A suite of companion tools for [iNaturalist](https://www.inaturalist.org) — ex
 - **Species Observed** — browse and filter all species you've observed (includes a "My Rarest Species" view — your species with the fewest observations worldwide)
 - **Species Identified** — browse species you've identified for others
 - **First Observer** / **First Identifier** — species you were the first to record or identify on iNaturalist
+- **Top Genera** — your observations grouped by the best-observed rank (genus, family, order, class, phylum, or kingdom), so you can see which genera are your strongest and which you're only sampling — with CSV export
 
 ### Compare & discover
 
