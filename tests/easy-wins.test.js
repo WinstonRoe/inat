@@ -24,10 +24,12 @@ test("computeEase clamps to the 0-100 range", () => {
   assert.equal(computeEase(-5, 100), 0);
 });
 
-test("easeLabel buckets the score into easy / medium / hard", () => {
-  assert.equal(easeLabel(100), "easy");
-  assert.equal(easeLabel(80), "easy");
-  assert.equal(easeLabel(79), "medium");
+test("easeLabel buckets the score into very-easy / easy / medium / hard", () => {
+  assert.equal(easeLabel(100), "very-easy");
+  assert.equal(easeLabel(90), "very-easy");
+  assert.equal(easeLabel(89), "easy");
+  assert.equal(easeLabel(70), "easy");
+  assert.equal(easeLabel(69), "medium");
   assert.equal(easeLabel(40), "medium");
   assert.equal(easeLabel(39), "hard");
   assert.equal(easeLabel(0), "hard");

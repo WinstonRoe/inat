@@ -556,7 +556,8 @@ function computeEase(researchTotal, verifiableTotal) {
 
 // Bucket an ease % into a coarse label for the stat-chips filter.
 function easeLabel(pct) {
-  if (pct >= 80) return "easy";
+  if (pct >= 90) return "very-easy";
+  if (pct >= 70) return "easy";
   if (pct >= 40) return "medium";
   return "hard";
 }
