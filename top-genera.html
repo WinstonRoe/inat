@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      if (localStorage.getItem("darkMode") === "true") {
+        document.documentElement.classList.add("dark-mode");
+      }
+    </script>
+    <title>Top Taxa - iNaturalist</title>
+    <link rel="icon" href="favicon.ico" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="dark-mode.css?v=8" />
+    <style>
+      .back-button {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        background: #2d2d2d;
+        color: #ccc;
+        text-decoration: none;
+        font-size: 0.8rem;
+        font-weight: 500;
+        padding: 4px 10px;
+        border-radius: 6px;
+        z-index: 1000;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        transition: background 0.2s;
+      }
+      html.dark-mode .back-button {
+        background: #2b2b2b;
+        border: 1px solid #444;
+      }
+      .summary-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        border: 1px solid #ddd;
+        padding: 15px 20px;
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+      }
+      html.dark-mode .summary-card {
+        background: #2b2b2b;
+        border-color: #444;
+      }
+      .summary-search {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .rank-select {
+        padding: 8px 12px;
+        border: 2px solid #ddd;
+        border-radius: 5px;
+        font-size: 14px;
+        background: white;
+        cursor: pointer;
+        appearance: none;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        background-size: 1em;
+      }
+      .rank-select:hover {
+        border-color: #3498db;
+      }
+      .rank-select:focus {
+        outline: none;
+        border-color: #1976d2;
+        box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+      }
+      .advanced-toggle {
+        padding: 6px 12px;
+        font-size: 0.85rem;
+        background: #f0f0f0;
+        border: 2px solid #ddd;
+        border-radius: 5px;
+        color: #333;
+        cursor: pointer;
+        transition: background 0.2s, border-color 0.2s;
+      }
+      .advanced-toggle:hover {
+        background: #e0e0e0;
+        border-color: #999;
+      }
+      .advanced-toggle[aria-expanded="true"] {
+        background: #e8f0fe;
+        border-color: #1976d2;
+        color: #1976d2;
+      }
+      html.dark-mode .advanced-toggle {
+        background: #2a2a2a;
+        border-color: #444;
+        color: #e0e0e0;
+      }
+      html.dark-mode .advanced-toggle:hover {
+        background: #333;
+        border-color: #666;
+      }
+      html.dark-mode .advanced-toggle[aria-expanded="true"] {
+        background: #1a2a4a;
+        border-color: #64b5f6;
+        color: #64b5f6;
+      }
+      .genus-card {
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        margin-bottom: 16px;
+        overflow: hidden;
+      }
+      html.dark-mode .genus-card {
+        background: #2b2b2b;
+        border-color: #444;
+      }
+      .genus-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        background: #f1f8e9;
+        cursor: pointer;
+      }
+      html.dark-mode .genus-head {
+        background: #26331f;
+      }
+      .genus-photo {
+        width: 48px;
+        height: 48px;
+        border-radius: 6px;
+        object-fit: cover;
+        flex-shrink: 0;
+      }
+      .genus-name {
+        font-size: 18px;
+        font-weight: 600;
+        font-style: italic;
+      }
+      .genus-count {
+        color: #558b2f;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      html.dark-mode .genus-count {
+        color: #c5e1a5;
+      }
+      .species-list {
+        list-style: none;
+        margin: 0;
+        padding: 12px;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 12px;
+      }
+      .species-list li {
+        display: flex;
+        flex-direction: column;
+        border: 1px solid #eee;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #fff;
+        transition: box-shadow 0.15s ease, transform 0.15s ease;
+      }
+      .species-list li:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        transform: translateY(-2px);
+      }
+      html.dark-mode .species-list li {
+        border-color: #3a3a3a;
+        background: #2b2b2b;
+      }
+      .sp-img {
+        display: block;
+        width: 100%;
+        aspect-ratio: 3 / 2;
+        object-fit: cover;
+        background: #eee;
+      }
+      .sp-img.sp-img-placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #bbb;
+        font-size: 32px;
+      }
+      html.dark-mode .sp-img {
+        background: #3a3a3a;
+      }
+      .sp-body {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 10px 12px 12px;
+        min-width: 0;
+      }
+      .sp-name {
+        font-style: italic;
+        font-weight: 600;
+        overflow-wrap: anywhere;
+      }
+      .sp-name a {
+        color: inherit;
+        text-decoration: none;
+      }
+      .sp-name a:hover {
+        text-decoration: underline;
+      }
+      .sp-common {
+        color: #666;
+        font-size: 14px;
+        overflow-wrap: anywhere;
+      }
+      html.dark-mode .sp-common {
+        color: #999;
+      }
+      .sp-obs {
+        color: #558b2f;
+        font-weight: 600;
+        font-size: 13px;
+        margin-top: auto;
+        padding-top: 4px;
+      }
+      html.dark-mode .sp-obs {
+        color: #c5e1a5;
+      }
+      .collapsed .species-list {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <a href="/inat" class="back-button">
+      <span style="font-size: 1rem;">&#8592;</span> More tools
+    </a>
+    <div class="container">
+      <header>
+        <div class="header-content">
+          <div class="title-container">
+            <img src="logo.png" alt="iNaturalist Logo" class="logo" />
+            <h1>Top Taxa on iNaturalist</h1>
+          </div>
+          <p class="description">
+            Your observations grouped by taxonomic rank, ordered by the number of
+            unique species in each group, with the species listed under each.
+          </p>
+        </div>
+      </header>
+      <div class="summary-card">
+        <div class="summary-search">
+          <div class="username-search-container" style="flex: 1; min-width: 150px;">
+            <input type="text" id="usernameInput" placeholder="Username (optional if place/project selected)" autocomplete="off" style="width: 100%" />
+            <div id="usernameAutocomplete" class="username-autocomplete"></div>
+          </div>
+          <button id="advancedToggle" type="button" class="advanced-toggle" title="Show or hide advanced filters (place/project, taxon, dates)" aria-expanded="false">Advanced Options ▾</button>
+          <div id="advancedOptions" style="display: none; flex: 1 1 100%; flex-wrap: wrap; gap: 8px; align-items: center;">
+            <div class="username-search-container" style="flex: 1; min-width: 150px;">
+              <input type="text" id="locationInput" placeholder="Search place or project (optional)" autocomplete="off" style="width: 100%" />
+              <div id="locationAutocomplete" class="username-autocomplete"></div>
+              <input type="hidden" id="placeId" value="" />
+              <input type="hidden" id="projectId" value="" />
+            </div>
+            <div class="username-search-container" style="flex: 1; min-width: 150px;">
+              <input type="text" id="taxonInput" placeholder="Filter by taxon (optional)" autocomplete="off" style="width: 100%" />
+              <div id="taxonAutocomplete" class="username-autocomplete"></div>
+              <input type="hidden" id="taxonId" value="" />
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center; flex: 1; min-width: 150px;">
+              <input type="date" id="dateFrom" title="Initial date" style="padding: 8px 12px; border: 2px solid #ddd; border-radius: 5px; font-size: 14px; flex: 1; min-width: 0;" />
+              <span style="color: #666; font-size: 14px;">to</span>
+              <input type="date" id="dateTo" title="Final date" style="padding: 8px 12px; border: 2px solid #ddd; border-radius: 5px; font-size: 14px; flex: 1; min-width: 0;" />
+            </div>
+          </div>
+          <select id="rankSelect" class="rank-select" title="Group by taxonomic rank">
+            <option value="genus" selected>Genus</option>
+            <option value="family">Family</option>
+            <option value="order">Order</option>
+            <option value="class">Class</option>
+            <option value="phylum">Phylum</option>
+            <option value="kingdom">Kingdom</option>
+          </select>
+          <select id="languageSelect" class="rank-select" title="Language for common names">
+            <option value="en" selected>English</option>
+            <option value="es">Spanish</option>
+            <option value="fr">French</option>
+            <option value="de">German</option>
+            <option value="pt">Portuguese</option>
+            <option value="it">Italian</option>
+            <option value="nl">Dutch</option>
+            <option value="ru">Russian</option>
+            <option value="ja">Japanese</option>
+            <option value="zh">Chinese</option>
+          </select>
+          <button id="searchBtn">Search</button>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap;">
+          <label class="genus-filter-toggle" title="Hide groups with fewer than this many species" style="display: inline-flex; gap: 8px; align-items: center;">
+            <input type="number" id="minSpecies" min="1" value="2"
+                   style="width: 64px; padding: 4px 8px; border: 2px solid #ddd; border-radius: 5px; font-size: 1rem;" />
+            min species per group
+          </label>
+          <button id="downloadBtn" style="display: none; padding: 8px 16px; font-size: 14px;" title="Export the current view as CSV">Download CSV</button>
+        </div>
+        <div id="errorMessage" style="display: none; color: #c62828;"></div>
+        <div id="loading" style="display: none; margin-top: 10px;">Loading&hellip;</div>
+      </div>
+      <div id="genusContainer"></div>
+    </div>
+
+    <script src="constants.js"></script>
+    <script src="shared-utils.js?v=4"></script>
+    <script src="location-autocomplete.js?v=2"></script>
+    <script>
+      const usernameInput = document.getElementById("usernameInput");
+      const usernameAutocomplete = document.getElementById("usernameAutocomplete");
+      const locationInput = document.getElementById("locationInput");
+      const locationAutocomplete = document.getElementById("locationAutocomplete");
+      const placeIdInput = document.getElementById("placeId");
+      const projectIdInput = document.getElementById("projectId");
+      const taxonInput = document.getElementById("taxonInput");
+      const taxonAutocomplete = document.getElementById("taxonAutocomplete");
+      const taxonIdInput = document.getElementById("taxonId");
+      const dateFrom = document.getElementById("dateFrom");
+      const dateTo = document.getElementById("dateTo");
+      const searchBtn = document.getElementById("searchBtn");
+      const loading = document.getElementById("loading");
+      const genusContainer = document.getElementById("genusContainer");
+      const minSpeciesInput = document.getElementById("minSpecies");
+      const rankSelect = document.getElementById("rankSelect");
+      const downloadBtn = document.getElementById("downloadBtn");
+      const advancedToggle = document.getElementById("advancedToggle");
+      const advancedOptions = document.getElementById("advancedOptions");
+      advancedToggle.addEventListener("click", function () {
+        const open = advancedOptions.style.display !== "none";
+        advancedOptions.style.display = open ? "none" : "flex";
+        advancedToggle.setAttribute("aria-expanded", String(!open));
+        advancedToggle.textContent = !open ? "Advanced Options ▲" : "Advanced Options ▾";
+      });
+
+      let cachedData = null; // { taxa, taxaById }
+
+      function currentRankPlural() {
+        const plurals = {
+          genus: "genera",
+          family: "families",
+          order: "orders",
+          class: "classes",
+          phylum: "phyla",
+          kingdom: "kingdoms",
+        };
+        return plurals[rankSelect.value] || rankSelect.value + "s";
+      }
+
+      minSpeciesInput.addEventListener("change", () => {
+        render();
+      });
+      rankSelect.addEventListener("change", () => {
+        render();
+      });
+
+      usernameInput.value = initUsername(usernameInput) || "";
+      initLanguage(document.getElementById("languageSelect"));
+      initLocationAutocomplete(locationInput, locationAutocomplete, placeIdInput, {
+        persistToStorage: true,
+        loadFromStorage: true,
+        loadFromUrl: true,
+        updateUrlOnSelect: true,
+        includeProjects: true,
+        projectIdInput: projectIdInput,
+      });
+
+      let searchTimeout = null;
+      usernameInput.addEventListener("input", (e) => {
+        clearTimeout(searchTimeout);
+        const query = e.target.value.trim();
+        if (query.length < 2) { usernameAutocomplete.innerHTML = ""; usernameAutocomplete.style.display = "none"; return; }
+        searchTimeout = setTimeout(async () => {
+          try {
+            const data = await fetchJSON(`${API_BASE}/users/autocomplete?q=${encodeURIComponent(query)}`);
+            if (data.results && data.results.length > 0) {
+              usernameAutocomplete.innerHTML = data.results.slice(0, 10).map((u) =>
+                `<div class="username-suggestion" data-login="${escapeHtml(u.login)}">
+                  <div class="username-name">${escapeHtml(u.login)}</div>
+                  <div class="username-info">${(u.observations_count || 0).toLocaleString()} observations</div>
+                </div>`).join("");
+              usernameAutocomplete.style.display = "block";
+              usernameAutocomplete.querySelectorAll(".username-suggestion").forEach((item) =>
+                item.addEventListener("click", () => {
+                  usernameInput.value = item.dataset.login;
+                  usernameAutocomplete.innerHTML = ""; usernameAutocomplete.style.display = "none";
+                  search();
+                }));
+            } else { usernameAutocomplete.innerHTML = ""; usernameAutocomplete.style.display = "none"; }
+          } catch (err) { usernameAutocomplete.innerHTML = ""; usernameAutocomplete.style.display = "none"; }
+        }, 300);
+      });
+
+      let taxonSearchTimeout = null;
+      taxonInput.addEventListener("input", (e) => {
+        clearTimeout(taxonSearchTimeout);
+        const query = e.target.value.trim();
+        taxonIdInput.value = "";
+        if (query.length < 2) { taxonAutocomplete.innerHTML = ""; taxonAutocomplete.style.display = "none"; return; }
+        taxonSearchTimeout = setTimeout(async () => {
+          try {
+            const data = await fetchJSON(
+              `${API_BASE}/taxa/autocomplete?q=${encodeURIComponent(query)}&per_page=10&rank=kingdom,phylum,class,order,family,genus,subgenus`
+            );
+            if (data.results && data.results.length > 0) {
+              taxonAutocomplete.innerHTML = data.results.map((t) =>
+                `<div class="username-suggestion" data-taxon-id="${t.id}" data-taxon-name="${escapeHtml(t.name)}">
+                  <div class="username-name">${escapeHtml(t.preferred_common_name || t.name)}</div>
+                  <div class="username-info">${escapeHtml(t.rank)}${t.preferred_common_name ? " - " + escapeHtml(t.name) : ""}</div>
+                </div>`).join("");
+              taxonAutocomplete.style.display = "block";
+              taxonAutocomplete.querySelectorAll(".username-suggestion").forEach((item) =>
+                item.addEventListener("click", () => {
+                  taxonInput.value = item.dataset.taxonName;
+                  taxonIdInput.value = item.dataset.taxonId;
+                  taxonAutocomplete.innerHTML = ""; taxonAutocomplete.style.display = "none";
+                }));
+            } else { taxonAutocomplete.innerHTML = ""; taxonAutocomplete.style.display = "none"; }
+          } catch (err) { taxonAutocomplete.innerHTML = ""; taxonAutocomplete.style.display = "none"; }
+        }, 300);
+      });
+
+      document.addEventListener("click", (e) => {
+        if (!usernameInput.contains(e.target) && !usernameAutocomplete.contains(e.target)) usernameAutocomplete.style.display = "none";
+        if (!taxonInput.contains(e.target) && !taxonAutocomplete.contains(e.target)) taxonAutocomplete.style.display = "none";
+      });
+
+      searchBtn.addEventListener("click", search);
+      usernameInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") search();
+      });
+
+      async function resolveUser(username) {
+        const data = await fetchJSON(
+          `${API_BASE}/users/autocomplete?q=${encodeURIComponent(username)}`
+        );
+        const match =
+          (data.results || []).find(
+            (u) => u.login.toLowerCase() === username.toLowerCase()
+          ) || (data.results || [])[0];
+        if (!match) return null;
+        return match;
+      }
+
+      async function search() {
+        const username = usernameInput.value.trim();
+        const placeId = placeIdInput.value;
+        const projectId = projectIdInput.value;
+        if (!username && !placeId && !projectId) {
+          showError("errorMessage", "Enter a username or pick a place/project");
+          return;
+        }
+        hideError("errorMessage");
+        loading.style.display = "block";
+        genusContainer.innerHTML = "";
+        cachedData = null;
+
+        try {
+          let userParam = "";
+          if (username) {
+            const user = await resolveUser(username);
+            if (!user) {
+              loading.style.display = "none";
+              showError("errorMessage", "User not found");
+              return;
+            }
+            userParam = `user_id=${user.id}&`;
+            saveUsername(username);
+          }
+          if (placeId) userParam += `place_id=${placeId}&`;
+          if (projectId) userParam += `project_id=${projectId}&`;
+          if (username) updateUrlWithUsername(username);
+
+          const taxonId = taxonIdInput.value;
+          const d1 = dateFrom.value, d2 = dateTo.value;
+          const lang = document.getElementById("languageSelect").value;
+          const taxonParam = taxonId ? `&taxon_id=${taxonId}` : "";
+          const dateParam = d1 && d2 ? `&d1=${d1}&d2=${d2}` : "";
+          const localeParam = lang && lang !== "en" ? `&locale=${lang}` : "";
+
+          const results = await fetchSpeciesCountPages(
+            `${API_BASE}/observations/species_counts?${userParam}verifiable=true${taxonParam}${dateParam}${localeParam}`
+          );
+
+          // Keep only taxa with a real taxon, then group them by the chosen
+          // rank. species_counts only returns ancestor_ids (no ranks), so
+          // fetch the full ancestors once to know each one's rank. Grouping by
+          // an ancestor (rather than the taxon itself) folds fine-grained
+          // taxa up into their genus/family/etc. obs_count comes from the
+          // species_counts `count` field.
+          const taxa = results
+            .filter((r) => r.taxon && r.taxon.id)
+            .map((r) => {
+              const t = { ...r.taxon };
+              t.obs_count = r.count || 0;
+              return t;
+            });
+
+          const ancestorIds = new Set();
+          for (const t of taxa) {
+            ancestorIds.add(t.id);
+            (t.ancestor_ids || []).forEach((id) => ancestorIds.add(id));
+          }
+          const ids = [...ancestorIds];
+          const batchSize = 500;
+          const taxaById = new Map();
+          for (let i = 0; i < ids.length; i += batchSize) {
+            const batch = ids.slice(i, i + batchSize);
+            const data = await fetchJSON(
+              `${API_BASE}/taxa?id=${batch.join(",")}&per_page=${batchSize}${localeParam}`
+            );
+            for (const taxon of data.results || []) taxaById.set(taxon.id, taxon);
+          }
+
+          cachedData = { taxa, taxaById };
+          render();
+        } catch (err) {
+          loading.style.display = "none";
+          showError("errorMessage", "Something went wrong: " + err.message);
+        } finally {
+          loading.style.display = "none";
+        }
+      }
+
+      // Build the current ranked, filtered, sorted groups. Shared by the
+      // renderer and the CSV exporter so both always agree on what is shown.
+      function buildGroups() {
+        const { taxa, taxaById } = cachedData;
+        const rank = rankSelect.value;
+
+        // Resolve a taxon to the one of itself or its ancestors that is at the
+        // selected rank — pulling it up to the nearest ancestor at that level
+        // so fine-grained IDs fold into their genus/family/etc.
+        const groupOf = (t) =>
+          [t, ...((t.ancestor_ids || []).map((id) => taxaById.get(id)).filter(Boolean))].find(
+            (c) => c && c.rank === rank
+          ) || null;
+
+        const groups = new Map(); // groupId -> { taxon, items: [] }
+        for (const t of taxa) {
+          const g = groupOf(t);
+          if (!g) continue;
+          if (!groups.has(g.id)) groups.set(g.id, { taxon: g, items: [] });
+          groups.get(g.id).items.push(t);
+        }
+
+        let groupsArr = Array.from(groups.values());
+        const min = Math.max(1, parseInt(minSpeciesInput.value, 10) || 2);
+        if (min > 1) {
+          groupsArr = groupsArr.filter((g) => g.items.length >= min);
+        }
+
+        // Most taxa first; ties by name.
+        groupsArr.sort((a, b) => b.items.length - a.items.length || a.taxon.name.localeCompare(b.taxon.name));
+        for (const g of groupsArr) g.items.sort((a, b) => (b.obs_count || 0) - (a.obs_count || 0) || (a.name || "").localeCompare(b.name || ""));
+
+        return { groupsArr, groupCount: groups.size, rank };
+      }
+
+      function render() {
+        hideError("errorMessage");
+        genusContainer.innerHTML = "";
+        downloadBtn.style.display = "none";
+        if (!cachedData) return;
+
+        const { groupsArr, groupCount, rank } = buildGroups();
+
+        if (groupsArr.length === 0) {
+          showWelcome(
+            "errorMessage",
+            groupCount === 0
+              ? "No observations found for that filter yet."
+              : `No ${rank} groups with more than one taxon for that filter yet.`
+          );
+          return;
+        }
+
+        const total = groupsArr.reduce((n, g) => n + g.items.length, 0);
+        const head = document.createElement("p");
+        head.textContent = `${groupsArr.length} ${currentRankPlural()} · ${total} species`;
+        genusContainer.appendChild(head);
+
+        for (const g of groupsArr) {
+          const card = document.createElement("div");
+          card.className = "genus-card collapsed";
+
+          const totalObs = g.items.reduce((n, t) => n + (t.obs_count || 0), 0);
+          const headEl = document.createElement("div");
+          headEl.className = "genus-head";
+          headEl.innerHTML = `
+            ${
+              g.taxon.default_photo && g.taxon.default_photo.medium_url
+                ? `<img class="genus-photo" src="${g.taxon.default_photo.medium_url}" alt="" loading="lazy" />`
+                : ""
+            }
+            <span class="genus-name">
+              <a href="https://www.inaturalist.org/taxa/${g.taxon.id}" target="_blank" rel="noopener">
+                ${escapeHtml(g.taxon.name)}
+              </a>
+            </span>
+            <span class="genus-count">${g.items.length} species · ${totalObs} ${totalObs === 1 ? "observation" : "observations"}</span>
+          `;
+
+          const list = document.createElement("ul");
+          list.className = "species-list";
+          for (const sp of g.items) {
+            const li = document.createElement("li");
+            const obsCount = sp.obs_count || 0;
+            const photoUrl = sp.default_photo && (sp.default_photo.medium_url || sp.default_photo.small_url);
+            li.innerHTML = `
+              ${
+                photoUrl
+                  ? `<img class="sp-img" src="${escapeHtml(photoUrl)}" alt="" loading="lazy" />`
+                  : `<div class="sp-img sp-img-placeholder">&#128247;</div>`
+              }
+              <span class="sp-body">
+                <span class="sp-name"><a href="https://www.inaturalist.org/taxa/${sp.id}" target="_blank" rel="noopener">${escapeHtml(sp.name)}</a></span>
+                ${sp.preferred_common_name ? `<span class="sp-common">${escapeHtml(sp.preferred_common_name)}</span>` : ""}
+                <span class="sp-obs">${obsCount} ${obsCount === 1 ? "observation" : "observations"}</span>
+              </span>
+            `;
+            list.appendChild(li);
+          }
+
+          headEl.addEventListener("click", (e) => {
+            if (e.target.closest("a")) return; // let links work
+            card.classList.toggle("collapsed");
+          });
+
+          card.appendChild(headEl);
+          card.appendChild(list);
+          genusContainer.appendChild(card);
+        }
+
+        downloadBtn.style.display = "inline-block";
+      }
+
+      function downloadCSV() {
+        if (!cachedData) return;
+        const { groupsArr, rank } = buildGroups();
+        if (groupsArr.length === 0) return;
+
+        const csvQuote = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+        const headers = ["Group rank", "Group name", "Group iNat id", "Species", "Common name", "Species iNat id", "Observations"];
+        const rows = [];
+        for (const g of groupsArr) {
+          for (const sp of g.items) {
+            rows.push([
+              rank,
+              csvQuote(g.taxon.name),
+              g.taxon.id,
+              csvQuote(sp.name),
+              csvQuote(sp.preferred_common_name || ""),
+              sp.id,
+              sp.obs_count || 0,
+            ]);
+          }
+        }
+        const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
+        const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        const stamp = new Date().toISOString().split("T")[0];
+        link.setAttribute("download", `top-${rank}s-${stamp}.csv`);
+        link.click();
+        URL.revokeObjectURL(url);
+      }
+
+      downloadBtn.addEventListener("click", downloadCSV);
+
+      initFeedbackButton ? initFeedbackButton() : null;
+      if (typeof registerServiceWorker === "function") registerServiceWorker();
+    </script>
+    <script src="dark-mode.js?v=2"></script>
+  </body>
+</html>
