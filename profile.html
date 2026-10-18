@@ -62,7 +62,7 @@
     </script>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="dark-mode.css?v=8" />
-    <link rel="stylesheet" href="profile.css?v=3" />
+    <link rel="stylesheet" href="profile.css?v=4" />
       <script src="analytics.js"></script>
   </head>
   <body class="profile-page">
@@ -204,9 +204,9 @@
             <div class="top-species-strip" id="topSpeciesStrip"></div>
           </div>
 
-          <div class="chart-card favorite-genus-card" id="favoriteGenusCard" style="margin-bottom: 20px; display: none;">
-            <div class="chart-title">Favorite Genus</div>
-            <div class="favorite-genus-body" id="favoriteGenusBody"></div>
+          <div class="chart-card top-genus-card" id="topGenusCard" style="margin-bottom: 20px; display: none;">
+            <div class="chart-title">Most Observed Genus</div>
+            <div class="top-genus-body" id="topGenusBody"></div>
           </div>
 
           <div class="chart-card top-species-card" id="mostIdentifiedCard" style="margin-bottom: 20px; display: none;">
@@ -616,8 +616,8 @@
           // Load user's projects (fast, do it first)
           loadUserProjects(user.id, user.login);
 
-          // Favorite genus + most identified (independent, own loading states)
-          loadFavoriteGenus(user.id, user.login);
+          // Top genus + most identified (independent, own loading states)
+          loadTopGenus(user.id, user.login);
           loadMostIdentified(user.id, user.login);
 
           // Load calendar (independent, has its own loading state)
@@ -881,93 +881,103 @@
         }
       }
 
-      // "Favorite Genus": aggregate this user's favorite (faves) observations
-      // by genus. Top faved observations come from /observations ordered by
-      // faves_count; each observation's genus is resolved from its ancestor_ids
-      // via /taxa, then faves are summed per genus.
-      async function loadFavoriteGenus(userId, username) {
-        const card = document.getElementById('favoriteGenusCard');
-        const body = document.getElementById('favoriteGenusBody');
+      // "Most Observed Genus": the user's genus containing the most distinct
+      // species, mirroring the Top Taxa tool but limited to a single genus.
+      // Species + counts come from /observations/species_counts (same source as
+      // Top Taxa); ranks, photos and common names are hydrated via /taxa.
+      async function loadTopGenus(userId, username) {
+        const card = document.getElementById('topGenusCard');
+        const body = document.getElementById('topGenusBody');
         try {
-          const PAGE = 100;
-          const MAX_PAGES = 3;
-          let page = 1;
-          const allObs = [];
-          while (page <= MAX_PAGES) {
-            const data = await fetchJSON(
-              `${API_BASE}/observations?order_by=faves_count&order=desc&user_id=${userId}&per_page=${PAGE}&page=${page}&fields=id,taxon,faves_count`
-            );
-            const results = data.results || [];
-            if (results.length === 0) break;
-            allObs.push(...results);
-            if (results.length < PAGE) break;
-            page++;
-          }
-          if (allObs.length === 0) {
-            card.style.display = 'none';
-            return;
-          }
-          const anyFaves = allObs.some((o) => (o.faves_count || 0) > 0);
-          if (!anyFaves) {
+          const results = await fetchSpeciesCountPages(
+            `${API_BASE}/observations/species_counts?user_id=${userId}&verifiable=true`
+          );
+          const taxa = results
+            .filter((r) => r.taxon && r.taxon.id)
+            .map((r) => ({ taxon: r.taxon, obs_count: r.count || 0 }));
+          if (taxa.length === 0) {
             card.style.display = 'none';
             return;
           }
 
-          // Resolve every ancestor id to its genus (chunk /taxa 30 at a time)
-          const ancIds = new Set();
-          for (const o of allObs) (o.taxon && o.taxon.ancestor_ids ? o.taxon.ancestor_ids : []).forEach((id) => ancIds.add(id));
-          const idToGenus = new Map();
-          const ids = Array.from(ancIds);
-          for (let i = 0; i < ids.length; i += 30) {
-            const chunk = ids.slice(i, i + 30);
-            const data = await fetchJSON(`${API_BASE}/taxa/${chunk.join(',')}?per_page=30`);
-            for (const t of data.results || []) {
-              if (t.rank === 'genus') idToGenus.set(t.id, t);
-            }
-            if (i + 30 < ids.length) await sleep(150);
+          // Resolve ranks, photos and common names for the taxa and their
+          // ancestors (chunk /taxa 500 at a time).
+          const ids = new Set();
+          for (const { taxon } of taxa) {
+            ids.add(taxon.id);
+            (taxon.ancestor_ids || []).forEach((id) => ids.add(id));
+          }
+          const idToTaxon = new Map();
+          const idArr = Array.from(ids);
+          for (let i = 0; i < idArr.length; i += 500) {
+            const chunk = idArr.slice(i, i + 500);
+            const data = await fetchJSON(`${API_BASE}/taxa?id=${chunk.join(',')}&per_page=500`);
+            for (const t of data.results || []) idToTaxon.set(t.id, t);
+            if (i + 500 < idArr.length) await sleep(150);
           }
 
-          // Tally faves and observed-count per genus
-          const genusFaves = new Map();
-          const genusObs = new Map();
-          for (const o of allObs) {
-            const ancIdsArr = (o.taxon && o.taxon.ancestor_ids) || [];
-            for (const id of ancIdsArr) {
-              if (idToGenus.has(id)) {
-                genusFaves.set(id, (genusFaves.get(id) || 0) + (o.faves_count || 0));
-                genusObs.set(id, (genusObs.get(id) || 0) + 1);
-                break;
-              }
-            }
+          // Fold each taxon up into its genus (nearest ancestor at rank genus,
+          // or itself if it already is one).
+          const genusOf = (taxon) =>
+            taxon.rank === 'genus'
+              ? taxon
+              : (taxon.ancestor_ids || []).map((id) => idToTaxon.get(id)).find((t) => t && t.rank === 'genus') || null;
+
+          const groups = new Map(); // genusId -> { genus, species: [] }
+          for (const { taxon, obs_count } of taxa) {
+            const g = genusOf(taxon);
+            if (!g) continue;
+            if (!groups.has(g.id)) groups.set(g.id, { genus: g, species: [] });
+            groups.get(g.id).species.push({ taxon, obs_count });
           }
-          const top = Array.from(genusFaves.entries()).sort((a, b) => b[1] - a[1])[0];
-          if (!top) {
+          if (groups.size === 0) {
             card.style.display = 'none';
             return;
           }
-          const [genusId, faves] = top;
-          const genus = idToGenus.get(genusId) || {};
-          const name = genus.name || 'Unknown genus';
-          const common = genus.preferred_common_name || '';
-          const photo = genus.default_photo;
-          const photoUrl = photo ? (photo.medium_url || photo.square_url) : null;
-          const inatUrl = `https://www.inaturalist.org/taxa/${genusId}`;
-          const photoHtml = photoUrl
-            ? `<img src="${escapeHtml(photoUrl)}" alt="${escapeHtml(name)}" loading="lazy">`
-            : '<div class="favorite-genus-placeholder">🧬</div>';
+
+          // Winning genus: most distinct species (Top Taxa default), ties by name.
+          const top = Array.from(groups.values())
+            .sort((a, b) => b.species.length - a.species.length || a.genus.name.localeCompare(b.genus.name))[0];
+
+          const totalObs = top.species.reduce((n, s) => n + s.obs_count, 0);
+          const topSpecies = [...top.species]
+            .sort((a, b) => b.obs_count - a.obs_count || a.taxon.name.localeCompare(b.taxon.name))
+            .slice(0, 6);
+
+          const g = top.genus;
+          const genusUrl = `https://www.inaturalist.org/taxa/${g.id}`;
+          const genusPhoto = g.default_photo && (g.default_photo.medium_url || g.default_photo.square_url);
+          const spHtml = (s, i) => {
+            const t = s.taxon;
+            const common = t.preferred_common_name;
+            const url = `https://www.inaturalist.org/taxa/${t.id}`;
+            const photo = t.default_photo && (t.default_photo.medium_url || t.default_photo.small_url);
+            return `
+              <li>
+                ${photo ? `<img class="sp-img" src="${escapeHtml(photo)}" alt="" loading="lazy" />` : '<div class="sp-img sp-img-placeholder">🌿</div>'}
+                <span class="sp-body">
+                  <span class="sp-name"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" title="${escapeHtml(t.name)}">${escapeHtml(common || t.name)}</a></span>
+                  ${common ? `<span class="sp-common">${escapeHtml(t.name)}</span>` : ''}
+                  <span class="sp-obs">${s.obs_count.toLocaleString()} ${s.obs_count === 1 ? 'observation' : 'observations'}</span>
+                </span>
+              </li>
+            `;
+          };
+
           body.innerHTML = `
-            <a href="${escapeHtml(inatUrl)}" target="_blank" class="favorite-genus-item">
-              <div class="favorite-genus-photo">${photoHtml}<span class="favorite-genus-count">♥ ${faves.toLocaleString()} faves</span></div>
-              <div class="favorite-genus-info">
-                <div class="favorite-genus-name">${escapeHtml(common || name)}</div>
-                <div class="favorite-genus-sciname">${escapeHtml(name)}</div>
-                <div class="favorite-genus-share">across ${genusObs.get(genusId).toLocaleString()} faved observation${genusObs.get(genusId) === 1 ? '' : 's'}</div>
+            <div class="top-genus-head">
+              ${genusPhoto ? `<img class="top-genus-photo" src="${escapeHtml(genusPhoto)}" alt="" loading="lazy" />` : '<div class="top-genus-placeholder">🧬</div>'}
+              <div class="top-genus-name">
+                <a href="${escapeHtml(genusUrl)}" target="_blank" rel="noopener">${escapeHtml(g.name)}</a>
+                ${g.preferred_common_name ? `<span class="top-genus-common">${escapeHtml(g.preferred_common_name)}</span>` : ''}
               </div>
-            </a>
+              <span class="top-genus-count">${top.species.length} species · ${totalObs.toLocaleString()} ${totalObs === 1 ? 'observation' : 'observations'}</span>
+            </div>
+            <ul class="top-genus-species">${topSpecies.map(spHtml).join('')}</ul>
           `;
           card.style.display = 'block';
         } catch (error) {
-          console.error('Error loading favorite genus:', error);
+          console.error('Error loading top genus:', error);
           card.style.display = 'none';
         }
       }

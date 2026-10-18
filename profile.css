@@ -578,122 +578,162 @@ body.profile-page .top-species-sciname {
 }
 
 /* --------------------------------------------------------------------------
-   Favorite genus — single hero tile for the user's most-favoured genus
+   Most observed genus — a single Top Taxa–style card: the user's genus with
+   the most distinct species, with its top species listed underneath.
    -------------------------------------------------------------------------- */
-body.profile-page .favorite-genus-card {
-  margin-bottom: 20px;
+body.profile-page .top-genus-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-body.profile-page .favorite-genus-body {
+body.profile-page .top-genus-head {
   display: flex;
-}
-
-body.profile-page a.favorite-genus-item {
-  position: relative;
-  display: flex;
-  align-items: stretch;
-  flex: 1 1 auto;
-  min-width: 0;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
   background: var(--pf-surface-2);
   border: 1px solid var(--pf-line);
   border-radius: 14px;
-  overflow: hidden;
-  text-decoration: none;
-  color: inherit;
-  transition: transform 0.25s cubic-bezier(0.3, 0.8, 0.3, 1), box-shadow 0.25s,
-    border-color 0.25s;
 }
 
-body.profile-page a.favorite-genus-item:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--pf-shadow-lift);
-  border-color: var(--pf-green);
-}
-
-body.profile-page .favorite-genus-photo {
-  position: relative;
-  line-height: 0;
-  min-height: 140px;
-  flex: 0 0 200px;
-}
-
-body.profile-page .favorite-genus-photo img {
-  width: 100%;
-  height: 100%;
-  min-height: 140px;
+body.profile-page .top-genus-photo {
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
   object-fit: cover;
-  transition: transform 0.35s cubic-bezier(0.3, 0.8, 0.3, 1);
+  flex-shrink: 0;
 }
 
-body.profile-page a.favorite-genus-item:hover .favorite-genus-photo img {
-  transform: scale(1.04);
-}
-
-body.profile-page .favorite-genus-placeholder {
-  width: 100%;
-  min-height: 140px;
+body.profile-page .top-genus-placeholder {
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 3rem;
+  font-size: 1.8rem;
   background: var(--pf-green-tint);
   line-height: 1;
 }
 
-body.profile-page .favorite-genus-count {
-  position: absolute;
-  bottom: 10px;
-  left: 10px;
-  font-family: var(--pf-mono);
-  font-size: 0.65rem;
-  font-weight: 700;
-  color: #fff;
-  background: var(--pf-green);
-  padding: 3px 9px;
-  border-radius: 999px;
-  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.4);
-}
-
-body.profile-page.dark-mode .favorite-genus-count {
-  color: #101505;
-}
-
-body.profile-page .favorite-genus-info {
+body.profile-page .top-genus-name {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 4px;
-  padding: 16px 20px;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
-body.profile-page .favorite-genus-name {
+body.profile-page .top-genus-name a {
   font-family: var(--pf-display);
+  font-style: italic;
   font-weight: 600;
-  font-size: 1.25rem;
-  line-height: 1.25;
+  font-size: 1.2rem;
+  line-height: 1.2;
   color: var(--pf-ink);
+  text-decoration: none;
+  overflow-wrap: anywhere;
 }
 
-body.profile-page .favorite-genus-sciname {
-  font-style: italic;
+body.profile-page .top-genus-name a:hover {
+  color: var(--pf-green);
+  text-decoration: underline;
+}
+
+body.profile-page .top-genus-common {
   font-size: 0.85rem;
   color: var(--pf-muted);
+  overflow-wrap: anywhere;
 }
 
-body.profile-page .favorite-genus-share {
-  margin-top: 4px;
+body.profile-page .top-genus-count {
   font-family: var(--pf-mono);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--pf-green);
+  white-space: nowrap;
+}
+
+body.profile-page .top-genus-species {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+body.profile-page .top-genus-species li {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--pf-line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--pf-surface-2);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+body.profile-page .top-genus-species li:hover {
+  box-shadow: var(--pf-shadow-lift);
+  transform: translateY(-2px);
+}
+
+body.profile-page .sp-img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  background: var(--pf-green-tint);
+}
+
+body.profile-page .sp-img-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  font-size: 1.8rem;
+  line-height: 1;
+  background: var(--pf-green-tint);
+}
+
+body.profile-page .sp-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px 12px;
+  min-width: 0;
+}
+
+body.profile-page .sp-name {
+  font-style: italic;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+body.profile-page .sp-name a {
+  color: inherit;
+  text-decoration: none;
+}
+
+body.profile-page .sp-name a:hover {
+  text-decoration: underline;
+}
+
+body.profile-page .sp-common {
+  color: var(--pf-muted);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+body.profile-page .sp-obs {
   color: var(--pf-green);
   font-weight: 600;
-}
-
-@media (max-width: 560px) {
-  body.profile-page .favorite-genus-photo,
-  body.profile-page .favorite-genus-photo img,
-  body.profile-page .favorite-genus-placeholder {
-    min-height: 120px;
-  }
+  font-size: 0.8rem;
+  margin-top: auto;
+  padding-top: 4px;
 }
 
 /* --------------------------------------------------------------------------
