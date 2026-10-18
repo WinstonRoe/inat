@@ -482,6 +482,73 @@ const FOLDED_RANKS = ["subgenus", "genus", "complex", "tribe", "subfamily", "fam
 // Family (rank_level 30); anything coarser is not worth a first-observer check.
 const FOLDED_MAX_RANK_LEVEL = 30;
 
+// ===== Activity Heatmap helpers =====
+
+// Bucket an observation count for a single day into a 0-4 intensity level,
+// matching the per-year Activity Calendar scale (0 / 1 / 2-4 / 5-9 / 10+).
+function heatmapIntensity(count) {
+  const n = Number(count) || 0;
+  if (n === 0) return 0;
+  if (n === 1) return 1;
+  if (n <= 4) return 2;
+  if (n <= 9) return 3;
+  return 4;
+}
+
+const _localDayStr = (date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+    date.getDate()
+  ).padStart(2, "0")}`;
+
+const _parseDayStr = (s) => {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+
+// Lay out a day-count map into GitHub-style columns: each returned week is a
+// column of 7 days (Sunday first). dayData keys are "YYYY-MM-DD"; today is the
+// same-shaped string for the current calendar day. Days after today carry the
+// real date but a zeroed count and futures[i] = true so the UI can dim them.
+// Pure/local-date math, so deterministic and DST-safe.
+function heatmapWeeks(dayData, firstDate, lastDate, todayStr) {
+  const data = dayData || {};
+  const weeks = [];
+  const end = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate());
+  let cursor = new Date(firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate());
+  while (cursor <= end) {
+    const dates = [];
+    const counts = [];
+    const futures = [];
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + i);
+      const key = _localDayStr(day);
+      const future = key > todayStr;
+      dates.push(key);
+      counts.push(future ? 0 : data[key] || 0);
+      futures.push(future);
+    }
+    weeks.push({ dates, counts, futures });
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 7);
+  }
+  return weeks;
+}
+
+// Find the week where each month begins (based on the column's Sunday), so a
+// month label can sit above the right column.
+function heatmapMonthLabels(weeks) {
+  const labels = [];
+  let last = -1;
+  weeks.forEach((week, i) => {
+    if (!week.dates || !week.dates.length) return;
+    const month = _parseDayStr(week.dates[0]).getMonth();
+    if (month !== last) {
+      labels.push({ monthIndex: month, week: i });
+      last = month;
+    }
+  });
+  return labels;
+}
+
 // Map species_counts results to the taxon shape the checker pages use.
 function mapSpeciesCountTaxa(results) {
   return (results || [])
@@ -585,6 +652,9 @@ async function fetchTaxonEase(apiBase, taxonId, { delayMs = 0 } = {}) {
 // Allow unit tests (Node) to import the pure helpers; no-op in the browser.
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
+    heatmapIntensity,
+    heatmapWeeks,
+    heatmapMonthLabels,
     escapeHtml,
     sleep,
     getToken,

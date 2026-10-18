@@ -1125,6 +1125,189 @@ body.profile-page .calendar-day.today {
   outline-offset: -1px;
 }
 
+/* --------------------------------------------------------------------------
+   Activity Heatmap — multi-year contribution grid (scrolls wider than the
+   per-year calendar). Cell size lives here and in --ah-cell used by the JS.
+   -------------------------------------------------------------------------- */
+body.profile-page .activity-heatmap-card {
+  --ah-cell: 10px;
+  --ah-gap: 2px;
+  --ah-step: calc(var(--ah-cell) + var(--ah-gap));
+}
+
+body.profile-page .ah-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+body.profile-page .ah-header .chart-title {
+  margin-bottom: 0;
+  text-align: left;
+}
+
+body.profile-page .ah-title {
+  display: inline;
+}
+
+body.profile-page .ah-range {
+  display: inline;
+  margin-left: 8px;
+  font-family: var(--pf-mono);
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--pf-muted);
+}
+
+body.profile-page .ah-hint {
+  font-size: 0.72rem;
+  color: var(--pf-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+body.profile-page .ah-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--pf-line) transparent;
+}
+
+body.profile-page .ah-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+body.profile-page .ah-scroll::-webkit-scrollbar-thumb {
+  background: var(--pf-line);
+  border-radius: 4px;
+}
+
+body.profile-page .ah-plot {
+  display: block;
+  width: max-content;
+}
+
+body.profile-page .ah-months {
+  position: relative;
+  height: 14px;
+  margin-bottom: 4px;
+  font-family: var(--pf-mono);
+  font-size: 9px;
+  color: var(--pf-muted);
+}
+
+body.profile-page .ah-month {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  line-height: 1;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+body.profile-page .ah-grid {
+  display: flex;
+  gap: var(--ah-gap);
+}
+
+body.profile-page .ah-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ah-gap);
+  flex-shrink: 0;
+}
+
+body.profile-page .ah-cell {
+  width: var(--ah-cell);
+  height: var(--ah-cell);
+  border-radius: 2px;
+  background: var(--pf-bg);
+  flex-shrink: 0;
+}
+
+body.profile-page .ah-cell[data-level="1"] { background: #c8e08a; }
+body.profile-page .ah-cell[data-level="2"] { background: #a3cc4a; }
+body.profile-page .ah-cell[data-level="3"] { background: #85b81e; }
+body.profile-page .ah-cell[data-level="4"] { background: #587f00; }
+body.profile-page .ah-cell[data-level="0"]:not(.ah-future) { background: var(--pf-surface-2); }
+
+body.profile-page.dark-mode .ah-cell {
+  background: #1e2617;
+}
+body.profile-page.dark-mode .ah-cell[data-level="0"] { background: #1c2416; }
+body.profile-page.dark-mode .ah-cell[data-level="1"] { background: #33461a; }
+body.profile-page.dark-mode .ah-cell[data-level="2"] { background: #4d6a1e; }
+body.profile-page.dark-mode .ah-cell[data-level="3"] { background: #6d9722; }
+body.profile-page.dark-mode .ah-cell[data-level="4"] { background: #8fc61e; }
+
+body.profile-page .ah-cell.ah-future {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--pf-line);
+  opacity: 0.5;
+}
+
+body.profile-page .ah-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+body.profile-page .ah-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: var(--pf-muted);
+}
+
+body.profile-page .ah-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+}
+body.profile-page .ah-swatch[data-level="0"] { background: var(--pf-surface-2); }
+body.profile-page .ah-swatch[data-level="1"] { background: #c8e08a; }
+body.profile-page .ah-swatch[data-level="2"] { background: #a3cc4a; }
+body.profile-page .ah-swatch[data-level="3"] { background: #85b81e; }
+body.profile-page .ah-swatch[data-level="4"] { background: #587f00; }
+body.profile-page.dark-mode .ah-swatch[data-level="0"] { background: #1c2416; }
+body.profile-page.dark-mode .ah-swatch[data-level="1"] { background: #33461a; }
+body.profile-page.dark-mode .ah-swatch[data-level="2"] { background: #4d6a1e; }
+body.profile-page.dark-mode .ah-swatch[data-level="3"] { background: #6d9722; }
+body.profile-page.dark-mode .ah-swatch[data-level="4"] { background: #8fc61e; }
+
+body.profile-page .ah-legend-label {
+  margin: 0 4px;
+}
+
+body.profile-page .ah-stats {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  color: var(--pf-muted);
+}
+
+body.profile-page .ah-stat b {
+  color: var(--pf-ink);
+  font-weight: 600;
+}
+
+body.profile-page .ah-empty {
+  padding: 20px;
+  font-size: 0.85rem;
+  color: var(--pf-muted);
+  text-align: center;
+}
+
 body.profile-page .streak-range {
   font-weight: 400;
   color: var(--pf-muted);
@@ -1521,6 +1704,22 @@ body.profile-page .search-row .input-wrapper input {
 
   body.profile-page .calendar-weekday {
     height: 10px;
+  }
+
+  body.profile-page .activity-heatmap-card {
+    --ah-cell: 8px;
+    --ah-gap: 2px;
+  }
+
+  body.profile-page .ah-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  body.profile-page .ah-footer {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   body.profile-page .projects-list {

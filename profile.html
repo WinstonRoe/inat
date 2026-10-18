@@ -62,7 +62,7 @@
     </script>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="dark-mode.css?v=8" />
-    <link rel="stylesheet" href="profile.css?v=5" />
+    <link rel="stylesheet" href="profile.css?v=6" />
       <script src="analytics.js"></script>
   </head>
   <body class="profile-page">
@@ -285,6 +285,34 @@
             </div>
           </div>
 
+          <div class="chart-card activity-heatmap-card">
+            <div class="ah-header">
+              <div class="chart-title">
+                <span class="ah-title">Activity Heatmap</span>
+                <span class="ah-range" id="ahRange"></span>
+              </div>
+              <span class="ah-hint">Scroll to explore &rarr;</span>
+            </div>
+            <div class="ah-scroll" id="ahScroll">
+              <div class="ah-plot">
+                <div class="ah-months" id="ahMonths"></div>
+                <div class="ah-grid" id="ahGrid"></div>
+              </div>
+            </div>
+            <div class="ah-footer">
+              <div class="ah-legend">
+                <span class="ah-legend-label">Less</span>
+                <span class="ah-swatch" data-level="0"></span>
+                <span class="ah-swatch" data-level="1"></span>
+                <span class="ah-swatch" data-level="2"></span>
+                <span class="ah-swatch" data-level="3"></span>
+                <span class="ah-swatch" data-level="4"></span>
+                <span class="ah-legend-label">More</span>
+              </div>
+              <div class="ah-stats" id="ahStats"></div>
+            </div>
+          </div>
+
           <div class="chart-card projects-card">
             <div class="chart-title">Projects</div>
             <div class="projects-subtitle" id="projectsSubtitle">Loading...</div>
@@ -313,7 +341,7 @@
     </div>
 
     <script src="constants.js"></script>
-    <script src="shared-utils.js?v=4"></script>
+    <script src="shared-utils.js?v=5"></script>
     <script>
       const usernameInput = document.getElementById('usernameInput');
       const usernameAutocomplete = document.getElementById('usernameAutocomplete');
@@ -629,6 +657,10 @@
           // Load calendar (independent, has its own loading state)
           const joinYear = user.created_at ? new Date(user.created_at).getFullYear() : new Date().getFullYear();
           await loadCalendar(user.id, user.login, joinYear);
+
+          // Activity heatmap — its own load/error state, runs after the calendar
+          loadActivityHeatmap(user.id);
+
           await sleep(500);
 
           // Load countries (independent, has its own loading state)
@@ -1964,6 +1996,123 @@
           const endStr = `${monthNames[longestStreakEnd.getMonth()]} ${longestStreakEnd.getDate()}, ${longestStreakEnd.getFullYear()}`;
           document.getElementById('longestStreakLabel').textContent = `Longest streak · ${startStr} – ${endStr}`;
         }
+      }
+
+      // ===== Activity Heatmap (multi-year GitHub-style contribution view) =====
+      // Distinct from the per-year Activity Calendar: a wide, horizontally
+      // scrollable grid covering the last 5 calendar years, so a year's rhythm
+      // sits beside the others for a glanceable trend across time.
+      const AH_YEARS = 5;
+
+      // Column pitch in px, read from the card's CSS custom props so the
+      // month-labels line up even when the mobile media query shrinks cells.
+      function ahStep() {
+        const card = document.querySelector('.activity-heatmap-card');
+        if (!card) return 12;
+        const css = getComputedStyle(card);
+        const px = (v) => parseFloat(v.replace(/px$/, '')) || 0;
+        const cell = px(css.getPropertyValue('--ah-cell'));
+        const gap = px(css.getPropertyValue('--ah-gap'));
+        return (cell || 10) + (gap || 2);
+      }
+
+      async function loadActivityHeatmap(userId) {
+        const card = document.querySelector('.activity-heatmap-card');
+        if (!card) return;
+        const grid = document.getElementById('ahGrid');
+        const months = document.getElementById('ahMonths');
+        const rangeEl = document.getElementById('ahRange');
+        const statsEl = document.getElementById('ahStats');
+        if (!grid || !months || !rangeEl || !statsEl) return;
+
+        grid.innerHTML = '';
+        months.innerHTML = '';
+        statsEl.innerHTML = '';
+        rangeEl.textContent = '';
+
+        try {
+          const now = new Date();
+          const startYear = now.getFullYear() - (AH_YEARS - 1);
+          const firstDate = new Date(startYear, 0, 1);
+          const lastDate = new Date(now.getFullYear(), 11, 31);
+          const d1 = formatDateLocal(firstDate);
+          const d2 = formatDateLocal(lastDate);
+
+          const data = await fetchJSON(
+            `${API_BASE}/observations/histogram?user_id=${userId}&d1=${d1}&d2=${d2}&date_field=observed&interval=day`
+          );
+          await sleep(700);
+          const dayData = (data.results && data.results.day) || {};
+
+          const today = new Date();
+          today.setHours(23, 59, 59, 999);
+          const todayStr = formatDateLocal(today);
+
+          const weeks = heatmapWeeks(dayData, firstDate, lastDate, todayStr);
+          renderActivityHeatmap({ weeks, dayData, firstDate, lastDate, stats: statsEl, rangeEl });
+        } catch (error) {
+          console.error('Error loading activity heatmap:', error);
+          grid.innerHTML = '<div class="ah-empty">Activity heatmap unavailable.</div>';
+        }
+      }
+
+      function renderActivityHeatmap({ weeks, dayData, firstDate, lastDate, stats, rangeEl }) {
+        const months = document.getElementById('ahMonths');
+        const grid = document.getElementById('ahGrid');
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+        // Range header (e.g. "2022 – 2026")
+        rangeEl.textContent = `${firstDate.getFullYear()} – ${lastDate.getFullYear()}`;
+
+        // Month labels, positioned by the column index where each month begins
+        const labels = heatmapMonthLabels(weeks);
+        const step = ahStep();
+        const totalWidth = weeks.length * step;
+        months.innerHTML = labels
+          .map((label, i) => {
+            const next = labels[i + 1];
+            const width = next ? (next.week - label.week) * step : totalWidth - label.week * step;
+            return `<span class="ah-month" style="left:${label.week * step}px;width:${width}px;">${monthNames[label.monthIndex]}</span>`;
+          })
+          .join('');
+
+        // Grid (column per week, Sunday-first rows)
+        const cols = weeks
+          .map((week) => {
+            const cells = week.dates
+              .map((key, i) => {
+                const count = week.counts[i];
+                const level = heatmapIntensity(count);
+                const future = week.futures[i];
+                const [hy, hm, hd] = key.split('-').map(Number);
+                const displayDate = `${dayNames[i]}, ${monthNames[hm - 1]} ${hd}, ${hy}`;
+                const title = displayDate + (future ? ' (upcoming)' : ` — ${count} obs`);
+                return `<div class="ah-cell${future ? ' ah-future' : ''}" data-level="${level}" data-title="${title.replace(/"/g, '&quot;')}"></div>`;
+              })
+              .join('');
+            return `<div class="ah-col">${cells}</div>`;
+          })
+          .join('');
+        grid.innerHTML = cols;
+
+        // Stats computed from the full window (free—already fetched)
+        const activeDays = Object.keys(dayData).filter((k) => (dayData[k] || 0) > 0);
+        const totalObs = activeDays.reduce((sum, k) => sum + (dayData[k] || 0), 0);
+        let bestKey = null;
+        for (const k of activeDays) {
+          if (bestKey === null || dayData[k] > dayData[bestKey]) bestKey = k;
+        }
+        const bestLabel = (() => {
+          if (!bestKey) return null;
+          const [by, bm, bd] = bestKey.split('-').map(Number);
+          return `${monthNames[bm - 1]} ${bd}, ${by}`;
+        })();
+        const stat = (value, label) => `<span class="ah-stat"><b>${value}</b> ${label}</span>`;
+        stats.innerHTML =
+          stat(totalObs.toLocaleString(), 'observations') +
+          stat(activeDays.length.toLocaleString(), 'active days') +
+          (bestKey ? stat(dayData[bestKey].toLocaleString(), `best · ${bestLabel}`) : '');
       }
 
       // Redraw pie charts when dark mode changes
