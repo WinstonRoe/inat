@@ -578,6 +578,125 @@ body.profile-page .top-species-sciname {
 }
 
 /* --------------------------------------------------------------------------
+   Favorite genus — single hero tile for the user's most-favoured genus
+   -------------------------------------------------------------------------- */
+body.profile-page .favorite-genus-card {
+  margin-bottom: 20px;
+}
+
+body.profile-page .favorite-genus-body {
+  display: flex;
+}
+
+body.profile-page a.favorite-genus-item {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-width: 0;
+  background: var(--pf-surface-2);
+  border: 1px solid var(--pf-line);
+  border-radius: 14px;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.25s cubic-bezier(0.3, 0.8, 0.3, 1), box-shadow 0.25s,
+    border-color 0.25s;
+}
+
+body.profile-page a.favorite-genus-item:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--pf-shadow-lift);
+  border-color: var(--pf-green);
+}
+
+body.profile-page .favorite-genus-photo {
+  position: relative;
+  line-height: 0;
+  min-height: 140px;
+  flex: 0 0 200px;
+}
+
+body.profile-page .favorite-genus-photo img {
+  width: 100%;
+  height: 100%;
+  min-height: 140px;
+  object-fit: cover;
+  transition: transform 0.35s cubic-bezier(0.3, 0.8, 0.3, 1);
+}
+
+body.profile-page a.favorite-genus-item:hover .favorite-genus-photo img {
+  transform: scale(1.04);
+}
+
+body.profile-page .favorite-genus-placeholder {
+  width: 100%;
+  min-height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  background: var(--pf-green-tint);
+  line-height: 1;
+}
+
+body.profile-page .favorite-genus-count {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  font-family: var(--pf-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--pf-green);
+  padding: 3px 9px;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.4);
+}
+
+body.profile-page.dark-mode .favorite-genus-count {
+  color: #101505;
+}
+
+body.profile-page .favorite-genus-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 16px 20px;
+}
+
+body.profile-page .favorite-genus-name {
+  font-family: var(--pf-display);
+  font-weight: 600;
+  font-size: 1.25rem;
+  line-height: 1.25;
+  color: var(--pf-ink);
+}
+
+body.profile-page .favorite-genus-sciname {
+  font-style: italic;
+  font-size: 0.85rem;
+  color: var(--pf-muted);
+}
+
+body.profile-page .favorite-genus-share {
+  margin-top: 4px;
+  font-family: var(--pf-mono);
+  font-size: 0.72rem;
+  color: var(--pf-green);
+  font-weight: 600;
+}
+
+@media (max-width: 560px) {
+  body.profile-page .favorite-genus-photo,
+  body.profile-page .favorite-genus-photo img,
+  body.profile-page .favorite-genus-placeholder {
+    min-height: 120px;
+  }
+}
+
+/* --------------------------------------------------------------------------
    Most observed genus — a single Top Taxa–style card: the user's genus with
    the most distinct species, with its top species listed underneath.
    -------------------------------------------------------------------------- */
