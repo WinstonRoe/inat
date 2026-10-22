@@ -1,8 +1,12 @@
 # iNaturalist Tools
 
+[![Fork](https://img.shields.io/badge/fork%20of-glauberramos%2Finat-brightgreen)](https://github.com/glauberramos/inat)
+
 A suite of companion tools for [iNaturalist](https://www.inaturalist.org) — explore your observations, track your progress, and find what to go look for next. Built with vanilla HTML, CSS, and JavaScript, no build step, no external dependencies.
 
-**Live site:** https://glauberramos.github.io/inat/
+**Fork of [Glauber Ramos](https://github.com/glauberramos/inat)'s original iNaturalist tools repo — thank you for starting it!**
+
+**Live site:** https://WinstonRoe.github.io/inat/
 
 ## The tools
 
