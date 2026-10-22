@@ -549,6 +549,43 @@ function heatmapMonthLabels(weeks) {
   return labels;
 }
 
+// Build the 12 x 24 month-by-hour observation matrix from
+// /observations/histogram?interval=hour buckets. Keys look like
+// "2022-01-19T10:00:00Z" (or "...T10:00Z"). Returns null when no bucket
+// parsed, so the UI can tell "no timed obs" from "empty range".
+function seasonHourMatrix(hourBuckets) {
+  const src = hourBuckets && typeof hourBuckets === "object" ? hourBuckets : {};
+  const matrix = [];
+  for (let m = 0; m < 12; m++) matrix.push(new Array(24).fill(0));
+  let total = 0;
+  let peak = 0;
+  for (const key of Object.keys(src)) {
+    const count = Number(src[key]) || 0;
+    if (count <= 0 || !key) continue;
+    // YYYY-MM-DDTHH:MM...; month at index 5-6, hour at index 11-12.
+    const month = parseInt(key.slice(5, 7), 10) - 1;
+    const hour = parseInt(key.slice(11, 13), 10);
+    if (Number.isNaN(month) || Number.isNaN(hour) || month < 0 || month > 11 || hour < 0 || hour > 23) continue;
+    matrix[month][hour] += count;
+    total += count;
+    if (matrix[month][hour] > peak) peak = matrix[month][hour];
+  }
+  return { matrix, total, peak };
+}
+
+// Normalize a cell count to a 0-4 level on the user's own scale (peak cell = 4)
+// rather than the absolute Activity Calendar scale. A user with 3 timed obs
+// spread over 3 hours should still read as a heat grid, not a sea of "1"s.
+function seasonHourIntensity(count, peak) {
+  if (!peak || peak <= 0) return 0;
+  if (count <= 0) return 0;
+  const frac = count / peak;
+  if (frac <= 0.15) return 1;
+  if (frac <= 0.35) return 2;
+  if (frac <= 0.65) return 3;
+  return 4;
+}
+
 // Map species_counts results to the taxon shape the checker pages use.
 function mapSpeciesCountTaxa(results) {
   return (results || [])
@@ -655,6 +692,8 @@ if (typeof module !== "undefined" && module.exports) {
     heatmapIntensity,
     heatmapWeeks,
     heatmapMonthLabels,
+    seasonHourMatrix,
+    seasonHourIntensity,
     escapeHtml,
     sleep,
     getToken,

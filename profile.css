@@ -1308,6 +1308,199 @@ body.profile-page .ah-empty {
   text-align: center;
 }
 
+/* --------------------------------------------------------------------------
+   Observation Rhythm — Season x Hour grid (12 months x 24 hours). Relative
+   to the user's own peak so light users still read as a heat grid.
+   -------------------------------------------------------------------------- */
+body.profile-page .season-hour-card {
+  --sr-cell: 12px;
+  --sr-gap: 2px;
+  --sr-label: 34px;
+}
+
+body.profile-page.sr-loading .sr-plot,
+body.profile-page.sr-loading .sr-header {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+body.profile-page .sr-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+body.profile-page .sr-header .chart-title {
+  margin-bottom: 0;
+  text-align: left;
+}
+
+body.profile-page .sr-title {
+  display: inline;
+}
+
+body.profile-page .sr-hint {
+  display: inline;
+  margin-left: 8px;
+  font-family: var(--pf-mono);
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--pf-muted);
+}
+
+body.profile-page .sr-plot {
+  display: block;
+}
+
+body.profile-page .sr-hour-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sr-gap);
+  margin-bottom: 4px;
+}
+
+body.profile-page .sr-label-spacer {
+  width: var(--sr-label);
+  flex-shrink: 0;
+}
+
+body.profile-page .sr-hours {
+  display: flex;
+  gap: var(--sr-gap);
+  flex: 1;
+  font-family: var(--pf-mono);
+  font-size: 9px;
+  color: var(--pf-muted);
+}
+
+body.profile-page .sr-hour {
+  flex: 1;
+  text-align: center;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+body.profile-page .sr-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sr-gap);
+}
+
+body.profile-page .sr-row {
+  display: flex;
+  gap: var(--sr-gap);
+  align-items: center;
+}
+
+body.profile-page .sr-month-label {
+  width: var(--sr-label);
+  flex-shrink: 0;
+  font-family: var(--pf-mono);
+  font-size: 10px;
+  color: var(--pf-muted);
+  line-height: 1;
+}
+
+body.profile-page .sr-cell {
+  flex: 1;
+  height: var(--sr-cell);
+  min-width: 6px;
+  border-radius: 2px;
+  background: var(--pf-surface-2);
+  flex-shrink: 0;
+}
+
+body.profile-page .sr-cell[data-level="1"] { background: #c8e08a; }
+body.profile-page .sr-cell[data-level="2"] { background: #a3cc4a; }
+body.profile-page .sr-cell[data-level="3"] { background: #85b81e; }
+body.profile-page .sr-cell[data-level="4"] { background: #587f00; }
+
+body.profile-page.dark-mode .sr-cell {
+  background: #1c2416;
+}
+body.profile-page.dark-mode .sr-cell[data-level="1"] { background: #33461a; }
+body.profile-page.dark-mode .sr-cell[data-level="2"] { background: #4d6a1e; }
+body.profile-page.dark-mode .sr-cell[data-level="3"] { background: #6d9722; }
+body.profile-page.dark-mode .sr-cell[data-level="4"] { background: #8fc61e; }
+
+body.profile-page .sr-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+body.profile-page .sr-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: var(--pf-muted);
+}
+
+body.profile-page .sr-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+}
+body.profile-page .sr-swatch[data-level="0"] { background: var(--pf-surface-2); }
+body.profile-page .sr-swatch[data-level="1"] { background: #c8e08a; }
+body.profile-page .sr-swatch[data-level="2"] { background: #a3cc4a; }
+body.profile-page .sr-swatch[data-level="3"] { background: #85b81e; }
+body.profile-page .sr-swatch[data-level="4"] { background: #587f00; }
+body.profile-page.dark-mode .sr-swatch[data-level="0"] { background: #1c2416; }
+body.profile-page.dark-mode .sr-swatch[data-level="1"] { background: #33461a; }
+body.profile-page.dark-mode .sr-swatch[data-level="2"] { background: #4d6a1e; }
+body.profile-page.dark-mode .sr-swatch[data-level="3"] { background: #6d9722; }
+body.profile-page.dark-mode .sr-swatch[data-level="4"] { background: #8fc61e; }
+
+body.profile-page .sr-legend-label {
+  margin: 0 4px;
+}
+
+body.profile-page .sr-stats {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  color: var(--pf-muted);
+}
+
+body.profile-page .sr-stat b {
+  color: var(--pf-ink);
+  font-weight: 600;
+}
+
+body.profile-page .sr-empty {
+  padding: 24px;
+  text-align: center;
+}
+
+body.profile-page .sr-empty-icon {
+  font-size: 1.6rem;
+  margin-bottom: 8px;
+}
+
+body.profile-page .sr-empty-title {
+  font-weight: 600;
+  color: var(--pf-ink);
+  margin-bottom: 4px;
+}
+
+body.profile-page .sr-empty-note {
+  font-size: 0.82rem;
+  color: var(--pf-muted);
+  max-width: 420px;
+  margin: 0 auto;
+}
+
 body.profile-page .streak-range {
   font-weight: 400;
   color: var(--pf-muted);

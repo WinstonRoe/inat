@@ -17,7 +17,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="apple-touch-icon" href="logo.png" />
-    <link rel="canonical" href="https://glauberramos.github.io/inat/profile" />
+    <link rel="canonical" href="https://WinstonRoe.github.io/inat/profile" />
     <meta
       name="description"
       content="View detailed iNaturalist user profile statistics including species counts, observation quality breakdown, endemic and introduced species, and biodiversity metrics."
@@ -25,12 +25,12 @@
     <meta property="og:title" content="User Profile - iNaturalist Stats & Analytics" />
     <meta property="og:description" content="View detailed iNaturalist user profile statistics and biodiversity metrics." />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://glauberramos.github.io/inat/profile" />
+    <meta property="og:url" content="https://WinstonRoe.github.io/inat/profile" />
     <meta property="og:site_name" content="iNaturalist Tools" />
     <meta property="og:locale" content="en_US" />
-    <meta property="og:image" content="https://glauberramos.github.io/inat/logo.png" />
+    <meta property="og:image" content="https://WinstonRoe.github.io/inat/logo.png" />
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:image" content="https://glauberramos.github.io/inat/logo.png" />
+    <meta name="twitter:image" content="https://WinstonRoe.github.io/inat/logo.png" />
     <meta name="twitter:title" content="User Profile - iNaturalist" />
     <meta name="twitter:description" content="View detailed iNaturalist user profile statistics and biodiversity metrics." />
     <meta name="robots" content="index, follow" />
@@ -41,7 +41,7 @@
       "@type": "WebApplication",
       "name": "User Profile",
       "description": "View detailed iNaturalist user profile statistics including species counts, observation quality breakdown, and biodiversity metrics.",
-      "url": "https://glauberramos.github.io/inat/profile",
+      "url": "https://WinstonRoe.github.io/inat/profile",
       "applicationCategory": "UtilitiesApplication",
       "operatingSystem": "Web",
       "author": {
@@ -55,14 +55,14 @@
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       "itemListElement": [
-        { "@type": "ListItem", "position": 1, "name": "iNaturalist Tools", "item": "https://glauberramos.github.io/inat/" },
-        { "@type": "ListItem", "position": 2, "name": "User Profile Stats", "item": "https://glauberramos.github.io/inat/profile" }
+        { "@type": "ListItem", "position": 1, "name": "iNaturalist Tools", "item": "https://WinstonRoe.github.io/inat/" },
+        { "@type": "ListItem", "position": 2, "name": "User Profile Stats", "item": "https://WinstonRoe.github.io/inat/profile" }
       ]
     }
     </script>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="dark-mode.css?v=8" />
-    <link rel="stylesheet" href="profile.css?v=6" />
+    <link rel="stylesheet" href="profile.css?v=7" />
       <script src="analytics.js"></script>
   </head>
   <body class="profile-page">
@@ -313,6 +313,42 @@
             </div>
           </div>
 
+          <div class="chart-card season-hour-card">
+            <div class="sr-header">
+              <div class="chart-title">
+                <span class="sr-title">Observation Rhythm</span>
+                <span class="sr-hint">By month and time of day</span>
+              </div>
+            </div>
+            <div class="sr-plot">
+              <div class="sr-hour-row">
+                <span class="sr-label-spacer"></span>
+                <div class="sr-hours" id="srHours"></div>
+              </div>
+              <div class="sr-grid" id="srGrid"></div>
+            </div>
+            <div class="sr-footer">
+              <div class="sr-legend">
+                <span class="sr-legend-label">Less</span>
+                <span class="sr-swatch" data-level="0"></span>
+                <span class="sr-swatch" data-level="1"></span>
+                <span class="sr-swatch" data-level="2"></span>
+                <span class="sr-swatch" data-level="3"></span>
+                <span class="sr-swatch" data-level="4"></span>
+                <span class="sr-legend-label">More</span>
+              </div>
+              <div class="sr-stats" id="srStats"></div>
+            </div>
+            <div class="sr-empty" id="srEmpty">
+              <div class="sr-empty-icon">🕒</div>
+              <div class="sr-empty-title">No timed observations</div>
+              <div class="sr-empty-note">
+                Add a time of day to your observations to see when you like to record.
+                Hours of day are optional in iNaturalist; without one, the hour column stays blank.
+              </div>
+            </div>
+          </div>
+
           <div class="chart-card projects-card">
             <div class="chart-title">Projects</div>
             <div class="projects-subtitle" id="projectsSubtitle">Loading...</div>
@@ -341,7 +377,7 @@
     </div>
 
     <script src="constants.js"></script>
-    <script src="shared-utils.js?v=5"></script>
+    <script src="shared-utils.js?v=6"></script>
     <script>
       const usernameInput = document.getElementById('usernameInput');
       const usernameAutocomplete = document.getElementById('usernameAutocomplete');
@@ -660,6 +696,9 @@
 
           // Activity heatmap — its own load/error state, runs after the calendar
           loadActivityHeatmap(user.id);
+
+          // Observation rhythm (season x hour) — independent, same range as the calendar
+          loadObservationRhythm(user.id, joinYear);
 
           await sleep(500);
 
@@ -2111,8 +2150,112 @@
         const stat = (value, label) => `<span class="ah-stat"><b>${value}</b> ${label}</span>`;
         stats.innerHTML =
           stat(totalObs.toLocaleString(), 'observations') +
-          stat(activeDays.length.toLocaleString(), 'active days') +
+          stat(activeDaysCount.toLocaleString(), 'active days') +
           (bestKey ? stat(dayData[bestKey].toLocaleString(), `best · ${bestLabel}`) : '');
+      }
+
+      // ===== Observation Rhythm (Season x Hour grid) =====
+      // Where you observe, by month and time of day. iNaturalist only
+      // records a time of day when the user adds one, so the grid stays a
+      // friendly blank for users who skip that field. Fed by a single
+      // /observations/histogram?interval=hour call (the no-range variant
+      // returns zero buckets, so we pass joinYear..currentYear).
+      async function loadObservationRhythm(userId, joinYear) {
+        const card = document.querySelector('.season-hour-card');
+        if (!card) return;
+        const grid = document.getElementById('srGrid');
+        const hours = document.getElementById('srHours');
+        const stats = document.getElementById('srStats');
+        const empty = document.getElementById('srEmpty');
+        if (!grid || !hours || !stats || !empty) return;
+
+        grid.innerHTML = '';
+        hours.innerHTML = '';
+        stats.innerHTML = '';
+        card.classList.add('sr-loading');
+
+        try {
+          const currentYear = new Date().getFullYear();
+          const d1 = `${Math.min(joinYear, 2010)}-01-01`;
+          const d2 = `${currentYear}-12-31`;
+          const data = await fetchJSON(
+            `${API_BASE}/observations/histogram?user_id=${userId}&d1=${d1}&d2=${d2}&date_field=observed&interval=hour`
+          );
+          await sleep(700);
+          const hourBuckets = (data.results && data.results.hour) || {};
+          renderObservationRhythm({ hourBuckets, grid, hours, stats, empty });
+        } catch (error) {
+          console.error('Error loading observation rhythm:', error);
+          showRhythmError(empty);
+        } finally {
+          card.classList.remove('sr-loading');
+        }
+      }
+
+      function showRhythmError(empty) {
+        const icon = empty.querySelector('.sr-empty-icon');
+        const title = empty.querySelector('.sr-empty-title');
+        const note = empty.querySelector('.sr-empty-note');
+        if (icon) icon.textContent = '⚠️';
+        if (title) title.textContent = 'Could not load observation rhythm';
+        if (note) note.textContent = 'Please try again in a moment.';
+        empty.style.display = '';
+        const grid = document.getElementById('srGrid');
+        if (grid) grid.parentElement.style.display = 'none';
+        const stats = document.getElementById('srStats');
+        if (stats) stats.innerHTML = '';
+      }
+
+      function renderObservationRhythm({ hourBuckets, grid, hours, stats, empty }) {
+        const { matrix, total, peak } = seasonHourMatrix(hourBuckets || {});
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const hourLabels = ['12a', '1a', '2a', '3a', '4a', '5a', '6a', '7a', '8a', '9a', '10a', '11a', '12p', '1p', '2p', '3p', '4p', '5p', '6p', '7p', '8p', '9p', '10p', '11p'];
+
+        const plot = grid ? grid.parentElement : null;
+        if (plot) plot.style.display = total > 0 ? '' : 'none';
+        if (empty) empty.style.display = total > 0 ? 'none' : '';
+
+        if (total === 0) return;
+
+        // Column headers (all 24 spans keep grid alignment; text every 3rd)
+        hours.innerHTML = hourLabels
+          .map((label, h) => {
+            const text = h % 3 === 0 ? label : '';
+            return `<span class="sr-hour" data-title="Hour ${h}">${text}</span>`;
+          })
+          .join('');
+
+        // Rows: month label + 24 cells
+        let rows = '';
+        for (let m = 0; m < 12; m++) {
+          let cells = '';
+          for (let h = 0; h < 24; h++) {
+            const count = matrix[m][h] || 0;
+            const level = seasonHourIntensity(count, peak);
+            cells += `<div class="sr-cell${count ? ' sr-has' : ''}" data-level="${level}" data-title="${monthNames[m]} · ${hourLabels[h]} · ${count} obs"></div>`;
+          }
+          rows += `<div class="sr-row"><span class="sr-month-label">${monthNames[m]}</span>${cells}</div>`;
+        }
+        grid.innerHTML = rows;
+
+        // Stats: peak, day vs night, most common month + hour
+        let day = 0, night = 0, peakCell = { m: 0, h: 0, v: 0 };
+        for (let m = 0; m < 12; m++) {
+          for (let h = 0; h < 24; h++) {
+            const c = matrix[m][h] || 0;
+            if (c > 0) {
+              if (h < 6 || h >= 19) night += c; else day += c;
+            }
+            if (c > peakCell.v) peakCell = { m, h, v: c };
+          }
+        }
+        const dayPct = total ? Math.round((day / total) * 100) : 0;
+        const nightPct = total ? 100 - dayPct : 0;
+        const stat = (value, label) => `<span class="sr-stat"><b>${value}</b> ${label}</span>`;
+        stats.innerHTML =
+          stat(total.toLocaleString(), 'timed obs') +
+          stat(`${dayPct} / ${nightPct}`, 'day / night %') +
+          stat(`${monthNames[peakCell.m]} · ${hourLabels[peakCell.h]}`, 'busiest slot');
       }
 
       // Redraw pie charts when dark mode changes
@@ -2138,7 +2281,7 @@
       observer.observe(document.body, { attributes: true });
     </script>
     <button class="feedback-button" id="feedbackBtn">Send feedback</button>
-    <script defer data-domain="glauberramos.github.io/inat" src="https://plausible.io/js/script.js"></script>
+    <script defer data-domain="WinstonRoe.github.io/inat" src="https://plausible.io/js/script.js"></script>
     <script type="text/javascript">
       initFeedbackButton();
     </script>
