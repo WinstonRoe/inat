@@ -15,14 +15,9 @@ body.guess-page {
   --g-good-bg: #e6f2e0;
   --g-bad: #c62828;
   --g-bad-bg: #fdecec;
-  --g-chip-order: #2f6f9f;
-  --g-chip-order-bg: #e3eef7;
-  --g-chip-family: #6a4fb3;
-  --g-chip-family-bg: #ece6f8;
-  --g-chip-genus: #b3521f;
-  --g-chip-genus-bg: #fbeadd;
   --g-radius: 12px;
   --g-gap: 16px;
+  --g-input-font: 16px; /* >=16px keeps mobile browsers from zooming on focus */
 }
 
 body.guess-page.dark-mode {
@@ -38,12 +33,6 @@ body.guess-page.dark-mode {
   --g-good-bg: #1e3320;
   --g-bad: #e57373;
   --g-bad-bg: #3a2020;
-  --g-chip-order: #62a8dd;
-  --g-chip-order-bg: #1c2f3e;
-  --g-chip-family: #a78fe0;
-  --g-chip-family-bg: #2a2140;
-  --g-chip-genus: #e0955f;
-  --g-chip-genus-bg: #38291c;
 }
 
 body.guess-page .back-button {
@@ -71,57 +60,108 @@ body.guess-page .back-button:hover {
   background: #444;
 }
 
-/* ---- Score bar --------------------------------------------------------- */
-body.guess-page .score-bar {
+/* ---- Place bar ---------------------------------------------------------- */
+body.guess-page .place-bar {
   display: flex;
-  gap: 14px;
-  justify-content: center;
+  align-items: center;
+  gap: 10px;
   flex-wrap: wrap;
-  background: var(--g-surface);
-  border: 1px solid var(--g-border);
-  border-radius: var(--g-radius);
-  padding: 14px 18px;
-  margin: 18px 0 8px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  max-width: 640px;
+  margin: 14px auto 0;
 }
-body.guess-page .score-cell {
+body.guess-page .place-bar-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--g-text-soft);
+}
+body.guess-page .place-bar-input-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+}
+body.guess-page .place-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: var(--g-input-font);
+  padding: 9px 34px 9px 12px;
+  border: 1px solid var(--g-border);
+  border-radius: 8px;
+  background: var(--g-surface);
+  color: var(--g-text);
+  transition: border-color 0.2s;
+}
+body.guess-page .place-input:focus {
+  outline: none;
+  border-color: var(--g-accent);
+}
+body.guess-page .place-clear {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--g-text-faint);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+body.guess-page .place-clear:hover {
+  background: var(--g-border);
+  color: var(--g-text);
+}
+
+/* ---- Session strip ------------------------------------------------------- */
+body.guess-page .session-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  max-width: 640px;
+  margin: 14px auto 0;
+}
+body.guess-page .session-cell {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  min-width: 100px;
-  padding: 0 6px;
+  gap: 1px;
+  min-width: 84px;
+  padding: 8px 14px;
+  background: var(--g-surface);
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-radius);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
-body.guess-page .score-cell + .score-cell {
-  border-left: 1px solid var(--g-border);
-}
-body.guess-page .score-value {
-  font-size: 1.35rem;
+body.guess-page .session-value {
+  font-size: 1.3rem;
   font-weight: 700;
   color: var(--g-accent-deep);
   line-height: 1.1;
+  font-variant-numeric: tabular-nums;
 }
-body.guess-page .score-label {
-  font-size: 0.75rem;
+body.guess-page .session-label {
+  font-size: 0.7rem;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
+  color: var(--g-text-faint);
+}
+body.guess-page .session-meta {
+  font-size: 0.82rem;
   color: var(--g-text-soft);
 }
 
-body.guess-page .day-line {
-  text-align: center;
-  color: var(--g-text-faint);
-  font-size: 0.9rem;
-  margin: 0 0 14px;
-}
-
-/* ---- Grid + cards -------------------------------------------------------- */
-body.guess-page .guess-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: var(--g-gap);
-  margin-top: 6px;
-  transition: color 0.2s;
+/* ---- Stage + card --------------------------------------------------------- */
+body.guess-page .guess-stage {
+  max-width: 640px;
+  margin: 16px auto 0;
 }
 
 body.guess-page .guess-card {
@@ -141,11 +181,14 @@ body.guess-page .guess-card-missed {
   border-color: var(--g-bad);
   box-shadow: 0 0 0 2px var(--g-bad-bg), 0 2px 8px rgba(0, 0, 0, 0.08);
 }
+body.guess-page .guess-card-done {
+  border-color: var(--g-good);
+}
 
 body.guess-page .guess-photo,
 body.guess-page .guess-photo-empty {
   width: 100%;
-  aspect-ratio: 3 / 2;
+  aspect-ratio: 5 / 4;
   object-fit: cover;
   display: block;
   background: var(--g-border);
@@ -154,10 +197,12 @@ body.guess-page .guess-photo-empty {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 40px;
+  font-size: 52px;
   color: var(--g-text-faint);
 }
 body.guess-page .guess-photo-skeleton {
+  width: 100%;
+  aspect-ratio: 5 / 4;
   background: linear-gradient(
     100deg,
     var(--g-border) 40%,
@@ -179,29 +224,30 @@ body.guess-page .guess-skel-line {
   height: 12px;
   border-radius: 6px;
   background: var(--g-border);
-  margin: 10px 12px 0;
+  margin: 12px 16px 0;
 }
 body.guess-page .guess-skel-line-short {
   width: 55%;
-  margin-bottom: 14px;
+  margin-bottom: 18px;
 }
 
 /* ---- Card body ----------------------------------------------------------- */
 body.guess-page .guess-body {
-  padding: 12px 14px 16px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-body.guess-page .guess-meta {
-  font-size: 0.8rem;
-  color: var(--g-text-faint);
+  gap: 12px;
 }
 body.guess-page .guess-status {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  padding: 6px 10px;
+  padding: 9px 12px;
   border-radius: 8px;
+  background: var(--g-good-bg);
+  color: var(--g-text);
+}
+body.guess-page .guess-status em {
+  font-style: italic;
 }
 body.guess-page .guess-status-solved {
   background: var(--g-good-bg);
@@ -211,119 +257,142 @@ body.guess-page .guess-status-missed {
   background: var(--g-bad-bg);
   color: var(--g-bad);
 }
-
-/* ---- Hint chips ---------------------------------------------------------- */
-body.guess-page .hint-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+body.guess-page .guess-prompt {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--g-text-soft);
+  margin: 0;
 }
-body.guess-page .hint-chip {
+
+/* ---- Choice grid --------------------------------------------------------- */
+body.guess-page .choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+body.guess-page .choice-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 11px 12px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: var(--g-text);
+  background: var(--g-surface);
+  border: 1px solid var(--g-border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.05s;
+}
+body.guess-page .choice-btn:hover {
+  border-color: var(--g-accent);
+  background: rgba(116, 172, 0, 0.06);
+}
+body.guess-page .choice-btn:active {
+  transform: translateY(1px);
+}
+body.guess-page .choice-btn:disabled {
+  cursor: default;
+}
+body.guess-page .choice-letter {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 0.8rem;
-  padding: 4px 9px;
-  border-radius: 14px;
-  background: var(--g-chip-order-bg);
-  color: var(--g-chip-order);
-  border: 1px solid transparent;
-}
-body.guess-page .hint-chip strong {
   font-weight: 700;
-}
-body.guess-page .hint-chips .hint-chip:nth-of-type(2) {
-  background: var(--g-chip-family-bg);
-  color: var(--g-chip-family);
-}
-body.guess-page .hint-chips .hint-chip:nth-of-type(3) {
-  background: var(--g-chip-genus-bg);
-  color: var(--g-chip-genus);
-}
-body.guess-page .hint-chip-loading {
-  opacity: 0.7;
-}
-body.guess-page .hint-missing {
-  opacity: 0.7;
-  font-style: italic;
-}
-
-/* ---- Answer reveal ------------------------------------------------------- */
-body.guess-page .guess-answer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 6px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--g-good-bg);
-  font-size: 0.92rem;
-}
-body.guess-page .guess-answer-name {
-  font-style: italic;
-  font-weight: 700;
-}
-body.guess-page .guess-answer-common {
+  border-radius: 50%;
+  background: var(--g-border);
   color: var(--g-text-soft);
 }
-body.guess-page .guess-answer-link {
-  margin-left: auto;
+body.guess-page .choice-text {
+  min-width: 0;
+  word-break: break-word;
+}
+
+body.guess-page .choice-btn-resolved {
+  opacity: 0.55;
+}
+body.guess-page .choice-btn-correct {
+  opacity: 1;
+  border-color: var(--g-good);
+  background: var(--g-good-bg);
+  color: var(--g-good);
+  box-shadow: 0 0 0 1px var(--g-good);
+}
+body.guess-page .choice-btn-correct .choice-letter {
+  background: var(--g-good);
+  color: #fff;
+}
+body.guess-page .choice-btn-wrong {
+  opacity: 1;
+  border-color: var(--g-bad);
+  background: var(--g-bad-bg);
+  color: var(--g-bad);
+}
+body.guess-page .choice-btn-wrong .choice-letter {
+  background: var(--g-bad);
+  color: #fff;
+}
+
+/* ---- Next + footer ------------------------------------------------------- */
+body.guess-page .guess-next-row {
+  display: flex;
+  justify-content: flex-end;
+}
+body.guess-page .guess-next {
+  padding: 11px 20px;
+  border: none;
+  border-radius: 10px;
+  background: var(--g-accent);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+body.guess-page .guess-next:hover {
+  background: var(--g-accent-deep);
+}
+body.guess-page .guess-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+body.guess-page .guess-taxon-link {
+  font-size: 0.82rem;
   color: var(--g-accent-deep);
-  font-size: 0.8rem;
   text-decoration: none;
 }
-body.guess-page .guess-answer-link:hover {
+body.guess-page .guess-taxon-link:hover {
   text-decoration: underline;
 }
 
-/* ---- Input --------------------------------------------------------------- */
-body.guess-page .guess-input-row {
-  display: flex;
-  gap: 8px;
+/* ---- End of pool --------------------------------------------------------- */
+body.guess-page .guess-end-msg {
+  font-size: 0.92rem;
+  color: var(--g-text-soft);
+  line-height: 1.5;
+  margin: 0;
 }
-body.guess-page .guess-input {
-  flex: 1;
-  min-width: 0;
-  padding: 9px 11px;
-  border: 2px solid var(--g-border);
-  border-radius: 8px;
-  font-size: 0.9rem;
-  background: var(--g-surface);
-  color: var(--g-text);
-}
-body.guess-page .guess-input:focus {
-  outline: none;
-  border-color: var(--g-accent);
-}
-body.guess-page .guess-submit {
-  padding: 9px 16px;
-  border: none;
+body.guess-page .guess-inline-restart {
+  padding: 5px 12px;
+  margin: 0 2px;
+  border: 1px solid var(--g-accent);
   border-radius: 8px;
   background: var(--g-accent);
   color: #fff;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  white-space: nowrap;
+  transition: background 0.15s;
 }
-body.guess-page .guess-submit:hover {
+body.guess-page .guess-inline-restart:hover {
   background: var(--g-accent-deep);
-}
-
-/* ---- Guess dots ---------------------------------------------------------- */
-body.guess-page .guess-dots {
-  display: flex;
-  gap: 6px;
-  justify-content: flex-end;
-}
-body.guess-page .guess-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--g-border);
-}
-body.guess-page .guess-dot-good {
-  background: var(--g-good);
-}
-body.guess-page .guess-dot-bad {
-  background: var(--g-bad);
 }
 
 /* ---- Feedback button + note ---------------------------------------------- */
@@ -348,7 +417,7 @@ body.guess-page .feedback-button:hover {
   transform: translateY(-2px);
 }
 body.guess-page .guess-note {
-  max-width: 560px;
+  max-width: 640px;
   margin: 16px auto 0;
   text-align: center;
   font-size: 0.9rem;
@@ -359,10 +428,22 @@ body.guess-page .guess-note.guess-error {
 }
 
 @media (max-width: 560px) {
-  body.guess-page .guess-grid {
+  body.guess-page .place-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  body.guess-page .place-bar-input-wrap {
+    min-width: 0;
+  }
+  body.guess-page .choice-grid {
     grid-template-columns: 1fr;
   }
-  body.guess-page .score-cell {
-    min-width: 84px;
+  body.guess-page .session-strip {
+    gap: 8px;
+  }
+  body.guess-page .session-cell {
+    min-width: 72px;
+    padding: 7px 12px;
   }
 }

@@ -10,7 +10,7 @@
         document.documentElement.classList.add("dark-mode");
       }
     </script>
-    <title>Guess the Species - Daily iNaturalist Puzzle</title>
+    <title>Guess the Species - iNaturalist Species Quiz</title>
     <link rel="icon" href="favicon.ico" />
     <link rel="manifest" href="manifest.json" />
     <meta name="theme-color" content="#74ac00" />
@@ -23,12 +23,12 @@
     />
     <meta
       name="description"
-      content="A daily puzzle: ten species photos, three guesses each, and hints that get better — order, then family, then genus. Score points, keep your streak alive, and sharpen your field skills."
+      content="An endless species quiz: one photo, four choices, unlimited rounds. Filter by any place on Earth and keep going until the area runs out of species."
     />
-    <meta property="og:title" content="Guess the Species - Daily iNaturalist Puzzle" />
+    <meta property="og:title" content="Guess the Species - iNaturalist Species Quiz" />
     <meta
       property="og:description"
-      content="Ten species photos, three guesses each, hints that escalate from order to family to genus. Score points and keep your streak alive."
+      content="One photo, four choices, unlimited rounds. Filter by place and keep going until the area runs out of species."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://WinstonRoe.github.io/inat/guess" />
@@ -37,8 +37,8 @@
     <meta property="og:image" content="https://WinstonRoe.github.io/inat/logo.png" />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:image" content="https://WinstonRoe.github.io/inat/logo.png" />
-    <meta name="twitter:title" content="Guess the Species - Daily iNaturalist Puzzle" />
-    <meta name="twitter:description" content="Ten species, three guesses each, escalating taxonomy hints. Keep your streak alive." />
+    <meta name="twitter:title" content="Guess the Species - iNaturalist Species Quiz" />
+    <meta name="twitter:description" content="One photo, four choices, unlimited rounds. Filter by place and play as long as you like." />
     <meta name="robots" content="index, follow" />
     <meta name="author" content="Glauber Ramos" />
     <script type="application/ld+json">
@@ -46,7 +46,7 @@
       "@context": "https://schema.org",
       "@type": "WebApplication",
       "name": "Guess the Species",
-      "description": "A daily puzzle of ten iNaturalist species photos. Three guesses per puzzle with hints that escalate from taxonomic order to family to genus. Score points and build a daily streak.",
+      "description": "An endless iNaturalist species quiz: one photo, four choices, unlimited rounds, with an optional location filter.",
       "url": "https://WinstonRoe.github.io/inat/guess",
       "applicationCategory": "GameApplication",
       "operatingSystem": "Web",
@@ -69,7 +69,7 @@
     </script>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="dark-mode.css?v=8" />
-    <link rel="stylesheet" href="guess.css?v=1" />
+    <link rel="stylesheet" href="guess.css?v=4" />
   </head>
   <body class="guess-page">
     <a href="/inat" class="back-button">
@@ -83,34 +83,42 @@
             <h1>Guess the Species</h1>
           </div>
           <p class="description">
-            Ten species in the wild, three guesses each. Miss and the hints get
-            better: first the <strong>order</strong>, then the
-            <strong>family</strong>, then the <strong>genus</strong>. Solve it
-            on the first guess for 3 points, second for 2, third for 1. Same ten
-            puzzles for everyone today — come back tomorrow for a new set and
-            keep the streak alive.
+            One photo, four choices, one winner. Play as long as you like —
+            change the place to quiz species from anywhere on Earth.
           </p>
         </div>
       </header>
 
-      <div class="score-bar" aria-label="Today's progress">
-        <div class="score-cell">
-          <span class="score-value" id="scoreValue">&#8211;</span>
-          <span class="score-label">today's score</span>
-        </div>
-        <div class="score-cell">
-          <span class="score-value" id="progressValue">&#8211;</span>
-          <span class="score-label">puzzles solved</span>
-        </div>
-        <div class="score-cell">
-          <span class="score-value" id="streakValue">0</span>
-          <span class="score-label">day streak</span>
+      <div class="place-bar" aria-label="Location filter">
+        <label class="place-bar-label" for="locationInput">Place</label>
+        <div class="place-bar-input-wrap">
+          <input
+            id="locationInput"
+            type="text"
+            class="place-input"
+            placeholder="Anywhere (optional)"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="placeClear" class="place-clear" type="button" title="Clear place" hidden>&#215;</button>
+          <div id="locationAutocomplete" class="place-autocomplete"></div>
+          <input type="hidden" id="placeId" value="" />
         </div>
       </div>
 
-      <p class="day-line" id="dayLine"></p>
+      <div class="session-strip" aria-label="Session progress">
+        <span class="session-cell">
+          <span class="session-value" id="solvedCount">0</span>
+          <span class="session-label">solved</span>
+        </span>
+        <span class="session-cell">
+          <span class="session-value" id="missedCount">0</span>
+          <span class="session-label">missed</span>
+        </span>
+        <span class="session-meta" id="sessionMeta"></span>
+      </div>
 
-      <div id="board" class="guess-grid" aria-live="polite"></div>
+      <div id="stage" class="guess-stage" aria-live="polite"></div>
 
       <p class="guess-note" id="guessNote" style="display:none"></p>
     </div>
@@ -118,383 +126,483 @@
     <button class="feedback-button" id="feedbackBtn">Send feedback</button>
 
     <script src="constants.js"></script>
-    <script src="shared-utils.js?v=8"></script>
+    <script src="shared-utils.js?v=9"></script>
+    <script src="location-autocomplete.js?v=2"></script>
     <script>
-      const STORAGE_KEY = "inat-guess";
-      const PUZZLE_COUNT = 10;
-      const MAX_GUESSES = 3;
-      const POINTS = { 1: 3, 2: 2, 3: 1 };
+      const STORAGE_KEY = "inat-guess-v3";
+      const POOL_PER_PAGE = 500;
+      const CHOICE_COUNT = 4;
 
-      const board = document.getElementById("board");
-      const scoreValueEl = document.getElementById("scoreValue");
-      const progressValueEl = document.getElementById("progressValue");
-      const streakValueEl = document.getElementById("streakValue");
-      const dayLineEl = document.getElementById("dayLine");
-      const guessNoteEl = document.getElementById("guessNote");
+      const stage = document.getElementById("stage");
+      const noteEl = document.getElementById("guessNote");
+      const solvedEl = document.getElementById("solvedCount");
+      const missedEl = document.getElementById("missedCount");
+      const sessionMetaEl = document.getElementById("sessionMeta");
+      const locationInput = document.getElementById("locationInput");
+      const locationAutocomplete = document.getElementById("locationAutocomplete");
+      const placeIdInput = document.getElementById("placeId") || null;
 
-      function todayKey() {
-        const d = new Date();
-        const m = String(d.getMonth() + 1).padStart(2, "0");
-        const day = String(d.getDate()).padStart(2, "0");
-        return d.getFullYear() + "-" + m + "-" + day;
-      }
-
-      function dayLabel(key) {
-        const [y, m, d] = key.split("-").map(Number);
-        return new Date(y, m - 1, d).toLocaleDateString(undefined, {
-          weekday: "long",
-          month: "long",
-          day: "numeric",
-          year: "numeric",
-        });
-      }
-
-      // ---- persisted state -------------------------------------------------
-      let state = { date: null, puzzles: {}, days: {} };
-
-      function loadState() {
+      // ---- session persistence ----------------------------------------------
+      function loadAllSessions() {
         try {
           const raw = localStorage.getItem(STORAGE_KEY);
-          if (raw) state = Object.assign(state, JSON.parse(raw));
+          if (!raw) return {};
+          const parsed = JSON.parse(raw);
+          return parsed && typeof parsed === "object" ? parsed : {};
         } catch (err) {
-          state = { date: null, puzzles: {}, days: {} };
+          return {};
         }
       }
 
-      function saveState() {
+      function saveAllSessions(map) {
         try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
         } catch (err) {
-          // Private mode / quota — play on without persistence.
+          // Private mode / quota — keep playing without persistence.
         }
       }
 
-      // ---- streak ----------------------------------------------------------
-      function streakThrough(key) {
-        const days = state.days || {};
-        let streak = 0;
-        let cursor = key;
-        if (!(days[cursor] && days[cursor].score > 0)) cursor = prevDay(key);
-        while (streak < 366) {
-          const d = days[cursor];
-          if (d && d.score > 0) {
-            streak++;
-            cursor = prevDay(cursor);
-          } else break;
+      // ---- current place ----------------------------------------------------
+      function currentPlaceId() {
+        // Prefer the hidden input (kept in sync by location-autocomplete) when
+        // present; fall back to the URL so a direct share link works even
+        // before the autocomplete script has had a chance to run.
+        if (placeIdInput && placeIdInput.value) return placeIdInput.value;
+        const params = new URLSearchParams(window.location.search);
+        return params.get("place_id") || "";
+      }
+
+      function placeKey() {
+        const id = currentPlaceId();
+        return sessionKeyForPlace(id);
+      }
+
+      function placeLabel() {
+        const inputVal = locationInput && locationInput.value.trim();
+        if (inputVal) return inputVal;
+        const params = new URLSearchParams(window.location.search);
+        return params.get("place") || "Anywhere";
+      }
+
+      // ---- pool + session state ---------------------------------------------
+      // pool: array of {taxonId, obsId, name, common, photo}
+      // order: array of pool indices in play order for the current shuffle
+      let pool = [];
+      let order = [];
+      let session = { solved: 0, missed: 0, started: -1, shuffleSeed: "" };
+      let exhausted = false;
+      let current = null;
+
+      function newShuffleSeed() {
+        const d = new Date();
+        const rand = fnv1aHash(Math.random().toString(36).slice(2) + ":" + d.getTime());
+        return (
+          d.getFullYear() +
+          "-" +
+          String(d.getMonth() + 1).padStart(2, "0") +
+          "-" +
+          String(d.getDate()).padStart(2, "0") +
+          "-" +
+          String(rand)
+        );
+      }
+
+      // Deterministic full-order shuffle of [0..n-1] by seed. Every index
+      // appears exactly once; the same (n, seed) pair always yields the same
+      // order — which is what lets a refresh mid-run resume in place.
+      function fullShuffle(n, seed) {
+        const remaining = [];
+        for (let i = 0; i < n; i++) remaining.push(i);
+        const out = [];
+        while (remaining.length) {
+          const h = fnv1aHash(seed + "#" + out.length);
+          const pick = h % remaining.length;
+          out.push(remaining.splice(pick, 1)[0]);
         }
-        return streak;
+        return out;
       }
 
-      function prevDay(key) {
-        const [y, m, d] = key.split("-").map(Number);
-        const dt = new Date(y, m - 1, d - 1);
-        const mm = String(dt.getMonth() + 1).padStart(2, "0");
-        const dd = String(dt.getDate()).padStart(2, "0");
-        return dt.getFullYear() + "-" + mm + "-" + dd;
+      function bestPhotoOf(r) {
+        const t = r.taxon;
+        const dp =
+          t && t.default_photo
+            ? t.default_photo.url || (t.default_photo.medium && t.default_photo.medium.url)
+            : "";
+        if (dp) return dp;
+        const op = r.photo && (r.photo.url || (r.photo.medium && r.photo.medium.url));
+        return op || "";
       }
 
-      // ---- puzzle setup ----------------------------------------------------
-      // Each puzzle record: { key, taxonId, name, common, photo, order,
-      // family, genus, hints: {order,family,genus,status} }
-      let puzzles = [];
-      const hintCache = new Map();
+      async function loadPool() {
+        const id = currentPlaceId();
+        const placeQ = id ? "&place_id=" + encodeURIComponent(id) : "";
+        const data = await fetchJSON(
+          `${API_BASE}/observations?has_photos=true&order_by=created_at&order=desc&per_page=${POOL_PER_PAGE}${placeQ}`
+        );
+        const rows = [];
+        const seen = new Set();
+        for (const r of data.results || []) {
+          const t = r.taxon;
+          if (!t || !t.min_species_taxon_id || seen.has(t.min_species_taxon_id)) continue;
+          seen.add(t.min_species_taxon_id);
+          rows.push({
+            taxonId: t.min_species_taxon_id,
+            obsId: r.id,
+            name: t.name,
+            common: t.preferred_common_name || "",
+            photo: bestPhotoOf(r),
+          });
+        }
+        return rows;
+      }
 
-      function newPuzzle(entry) {
-        return {
-          key: entry.taxonId,
-          taxonId: entry.taxonId,
-          obsId: entry.obsId,
-          name: entry.name,
-          common: entry.common,
-          photo: entry.photo,
-          guesses: 0,
-          solved: false,
-          correctOn: null,
-          revealed: false,
-          hintStatus: "none",
-          orderName: "",
-          familyName: "",
-          genusName: "",
+      // `session.started` = index into `order` of the puzzle currently on
+      // screen (the one the user is about to answer or just answered).
+      // -1 / 0 both mean "fresh start at order[0]".
+      function resetSession() {
+        session = { solved: 0, missed: 0, started: 0, shuffleSeed: newShuffleSeed() };
+      }
+
+      function resumeIfPossible() {
+        const all = loadAllSessions();
+        const prev = all[placeKey()];
+        if (!prev || !prev.shuffleSeed) return false;
+        // Only resume if the saved pool size matches the freshly loaded pool
+        // AND the saved cursor is still in range; otherwise the saved order
+        // would not be a permutation of the current pool.
+        if (prev.poolSize !== pool.length) return false;
+        const s = typeof prev.started === "number" ? prev.started : 0;
+        if (s < 0 || s >= pool.length) return false;
+        session.solved = prev.solved || 0;
+        session.missed = prev.missed || 0;
+        session.started = s;
+        session.shuffleSeed = prev.shuffleSeed;
+        order = fullShuffle(pool.length, session.shuffleSeed);
+        return true;
+      }
+
+      function commitSession() {
+        const all = loadAllSessions();
+        all[placeKey()] = {
+          solved: session.solved,
+          missed: session.missed,
+          started: session.started,
+          shuffleSeed: session.shuffleSeed,
+          poolSize: pool.length,
         };
+        saveAllSessions(all);
       }
 
-      function puzzleState(p) {
-        return state.puzzles[p.key] || { guesses: 0, solved: false, correctOn: null, revealed: false };
-      }
-
-      function applyPuzzleState(p, s) {
-        p.guesses = s.guesses || 0;
-        p.solved = !!s.solved;
-        p.correctOn = s.correctOn || null;
-        p.revealed = !!s.revealed;
-      }
-
-      async function buildDay() {
-        const today = todayKey();
-        dayLineEl.textContent = "Today's set · " + dayLabel(today);
-        if (state.date !== today) {
-          // Fresh day: archive yesterday's tally, start clean puzzles.
-          const prev = state.date ? state.days[state.date] : null;
-          state.days = state.days || {};
-          state.puzzles = {};
-          state.date = today;
-          saveState();
+      // ---- rendering --------------------------------------------------------
+      function updateScorebar() {
+        solvedEl.textContent = String(session.solved);
+        missedEl.textContent = String(session.missed);
+        const shown = session.started >= 0 ? session.started + 1 : 0;
+        if (pool.length === 0) {
+          sessionMetaEl.textContent = "\u00b7 " + placeLabel() + " \u00b7 warming up\u2026";
+        } else {
+          sessionMetaEl.textContent =
+            "\u00b7 " + placeLabel() +
+            " \u00b7 puzzle " + shown + " of " + pool.length;
         }
-        if (!puzzles.length) {
-          board.innerHTML = loadingCards();
-          try {
-            const data = await fetchJSON(
-              `${API_BASE}/observations?has_photos=true&order_by=created_at&order=desc&per_page=250`
+      }
+
+      function skeletonCard() {
+        return (
+          '<div class="guess-card">' +
+          '<div class="guess-photo guess-photo-skeleton"></div>' +
+          '<div class="guess-body">' +
+          '<div class="guess-skel-line"></div>' +
+          '<div class="guess-skel-line guess-skel-line-short"></div>' +
+          '</div>' +
+          '</div>'
+        );
+      }
+
+      function buildChoices(rowIdx) {
+        // Row is the correct one. Pick up to (CHOICE_COUNT - 1) distinct
+        // distractors from the pool (excluding rowIdx), deterministically.
+        const seed = session.shuffleSeed + ":" + placeKey() + ":" + session.started + ":" + rowIdx + ":" + pool[rowIdx].taxonId;
+        const distract = pickChoices(seed, pool.length, rowIdx, CHOICE_COUNT - 1);
+        const set = new Set([rowIdx]);
+        for (const d of distract) set.add(d);
+        // Deterministic presentation: correct slot first, distractors in pick-order.
+        // This keeps the letter assignment stable across refreshes for a given
+        // seed (and still varies across seeds).
+        return [rowIdx, ...distract];
+      }
+
+      function renderStage() {
+        if (exhausted && !current) {
+          stage.innerHTML =
+            '<div class="guess-card guess-card-done">' +
+            '<div class="guess-body">' +
+            '<div class="guess-status guess-status-solved">Ran out of species in that area!</div>' +
+            '<p class="guess-end-msg">You beat the whole pool this pass. Change the place above to keep going, or <button type="button" class="guess-inline-restart" id="restartBtn">start a new shuffle</button>.</p>' +
+            '</div>' +
+            '</div>';
+          const btn = document.getElementById("restartBtn");
+          if (btn) btn.addEventListener("click", newShuffle);
+          updateScorebar();
+          return;
+        }
+
+        if (!current) {
+          stage.innerHTML = skeletonCard();
+          updateScorebar();
+          return;
+        }
+
+        const row = current.row;
+        const photoHtml = row.photo
+          ? '<img class="guess-photo" src="' + escapeHtml(row.photo) + '" alt="Mystery species" loading="lazy" />'
+          : '<div class="guess-photo guess-photo-empty" aria-hidden="true">&#129417;</div>';
+
+        const choicesHtml = current.choices
+          .map((i, k) => {
+            const r = pool[i];
+            const isCorrect = i === current.correctIdx;
+            const isWrongPick = current.resolved && i === current.pickedIdx && !isCorrect;
+            let cls = "choice-btn";
+            if (current.resolved) cls += " choice-btn-resolved";
+            if (current.resolved && isCorrect) cls += " choice-btn-correct";
+            if (isWrongPick) cls += " choice-btn-wrong";
+            const label =
+              r.common && r.common.toLowerCase() !== r.name.toLowerCase()
+                ? r.name + " — " + r.common
+                : r.name;
+            return (
+              '<button type="button" class="' + cls + '" data-idx="' + i + '"' +
+              (current.resolved ? " disabled" : "") + ">" +
+              '<span class="choice-letter">' + String.fromCharCode(65 + k) + '</span>' +
+              '<span class="choice-text">' + escapeHtml(label) + '</span>' +
+              '</button>'
             );
-            const rows = [];
-            const seen = new Set();
-            const bestPhoto = (r) => {
-              const t = r.taxon;
-              const dp =
-                t && t.default_photo
-                  ? t.default_photo.url ||
-                    (t.default_photo.medium && t.default_photo.medium.url)
-                  : "";
-              if (dp) return dp;
-              const op =
-                r.photo && (r.photo.url || (r.photo.medium && r.photo.medium.url));
-              return op || "";
-            };
-            for (const r of data.results || []) {
-              const t = r.taxon;
-              if (!t || !t.min_species_taxon_id || seen.has(t.min_species_taxon_id)) continue;
-              seen.add(t.min_species_taxon_id);
-              const photo = bestPhoto(r);
-              rows.push({
-                taxonId: t.min_species_taxon_id,
-                obsId: r.id,
-                name: t.name,
-                common: t.preferred_common_name || "",
-                photo,
-              });
-            }
-            if (rows.length < PUZZLE_COUNT) throw new Error("Not enough species in today's pool. Try again in a minute.");
-            const slots = pickPuzzleSlots(today, rows, () => true, PUZZLE_COUNT);
-            for (const i of slots) {
-              const p = newPuzzle(rows[i]);
-              applyPuzzleState(p, puzzleState(p));
-              puzzles.push(p);
-            }
-          } catch (err) {
-            board.innerHTML = "";
-            showError(err.message);
-            return;
-          }
-          render();
+          })
+          .join("");
+
+        let statusHtml;
+        if (current.resolved && current.wasCorrect) {
+          statusHtml =
+            '<div class="guess-status guess-status-solved">Solved! — <em>' +
+            escapeHtml(row.name) +
+            (row.common ? " (" + escapeHtml(row.common) + ")" : "") +
+            "</em></div>";
+        } else if (current.resolved) {
+          statusHtml =
+            '<div class="guess-status guess-status-missed">Missed. It was <em>' +
+            escapeHtml(row.name) +
+            (row.common ? " (" + escapeHtml(row.common) + ")" : "") +
+            "</em></div>";
+        } else {
+          statusHtml = '<p class="guess-prompt">Which is it?</p>';
         }
-        render();
+
+        const nextBtnHtml = current.resolved
+          ? '<div class="guess-next-row"><button type="button" class="guess-next" id="nextBtn">' +
+            (session.started + 1 >= pool.length ? "Keep going" : "Next species &#8594;") +
+            "</button></div>"
+          : "";
+
+        const footerHtml =
+          '<div class="guess-footer">' +
+          '<a class="guess-taxon-link" href="https://www.inaturalist.org/taxa/' +
+          row.taxonId +
+          '" target="_blank" rel="noopener">Taxon page &#8599;</a>' +
+          "</div>";
+
+        stage.innerHTML =
+          '<div class="guess-card ' +
+          (current.resolved ? (current.wasCorrect ? "guess-card-solved" : "guess-card-missed") : "") +
+          '">' +
+          photoHtml +
+          '<div class="guess-body">' +
+          statusHtml +
+          '<div class="choice-grid" role="group" aria-label="Answer choices">' + choicesHtml + "</div>" +
+          nextBtnHtml +
+          footerHtml +
+          "</div>" +
+          "</div>";
+
+        if (current.resolved) {
+          const next = document.getElementById("nextBtn");
+          if (next) {
+            next.addEventListener("click", advance);
+            next.focus();
+          }
+        } else {
+          for (const b of stage.querySelectorAll("button.choice-btn")) {
+            const idx = Number(b.getAttribute("data-idx"));
+            b.addEventListener("click", () => pick(idx));
+          }
+        }
+        updateScorebar();
       }
 
       function showError(msg) {
-        guessNoteEl.textContent = msg;
-        guessNoteEl.style.display = "block";
-        guessNoteEl.className = "guess-note guess-error";
+        noteEl.textContent = msg;
+        noteEl.style.display = "block";
+        noteEl.className = "guess-note guess-error";
       }
 
-      // ---- hints -----------------------------------------------------------
-      async function ensureHints(p) {
-        if (hintCache.has(p.taxonId)) {
-          applyHints(p, hintCache.get(p.taxonId));
+      function clearNote() {
+        noteEl.style.display = "none";
+        noteEl.textContent = "";
+        noteEl.className = "guess-note";
+      }
+
+      // ---- game flow --------------------------------------------------------
+      function startPuzzleAt(startedIdx) {
+        const rowIdx = order[startedIdx];
+        const row = pool[rowIdx];
+        current = {
+          rowIdx,
+          correctIdx: rowIdx,
+          choices: buildChoices(rowIdx),
+          row,
+          resolved: false,
+          wasCorrect: false,
+          pickedIdx: -1,
+        };
+        renderStage();
+      }
+
+      function pick(idx) {
+        if (!current || current.resolved) return;
+        current.resolved = true;
+        current.pickedIdx = idx;
+        current.wasCorrect = idx === current.correctIdx;
+        if (current.wasCorrect) session.solved++;
+        else session.missed++;
+        commitSession();
+        renderStage();
+      }
+
+      function advance() {
+        if (!current || !current.resolved) return;
+        session.started += 1;
+        if (session.started >= pool.length) {
+          current = null;
+          exhausted = true;
+          commitSession();
+          renderStage();
           return;
         }
-        p.hintStatus = "loading";
-        render();
+        commitSession();
+        startPuzzleAt(session.started);
+      }
+
+      async function startSession() {
+        clearNote();
+        current = null;
+        exhausted = false;
+        pool = [];
+        order = [];
+        stage.innerHTML = skeletonCard();
+        updateScorebar();
         try {
-          const taxon = await fetchJSON(
-            `${API_BASE}/taxa/${p.taxonId}?include_taxon_levels=true`
-          );
-          const ancestors = taxon.ancestors || [];
-          const pick = (rank) => {
-            const a = ancestors.find((x) => x.rank === rank);
-            return a ? a.name : "";
-          };
-          const genusName =
-            (ancestors.find((x) => x.rank === "genus") || {}).name || "";
-          const hints = {
-            order: pick("order"),
-            family: pick("family"),
-            genus: genusName,
-            fallback: taxon.name || "",
-          };
-          hintCache.set(p.taxonId, hints);
-          applyHints(p, hints);
+          pool = await loadPool();
+          if (pool.length < 2) {
+            exhausted = true;
+            renderStage();
+            showError(
+              "Not enough species with photos in that place. Try a bigger area or clear the filter."
+            );
+            return;
+          }
+          if (!resumeIfPossible()) {
+            resetSession();
+            order = fullShuffle(pool.length, session.shuffleSeed);
+            commitSession();
+          }
+          if (session.started >= pool.length) {
+            exhausted = true;
+            renderStage();
+            return;
+          }
+          startPuzzleAt(session.started);
         } catch (err) {
-          hintCache.set(p.taxonId, { order: "", family: "", genus: "" });
-          applyHints(p, { order: "", family: "", genus: "" });
-          p.hintStatus = "failed";
+          stage.innerHTML = "";
+          showError(
+            (err && err.message ? err.message : "Could not load species for that place.") +
+            " Try again in a moment."
+          );
         }
-        render();
       }
 
-      function applyHints(p, hints) {
-        p.orderName = hints.order || "";
-        p.familyName = hints.family || "";
-        p.genusName = hints.genus || "";
-        if (p.hintStatus !== "loading") p.hintStatus = "done";
-      }
-
-      // ---- guessing --------------------------------------------------------
-      function submitGuess(p, inputEl) {
-        if (p.solved || p.revealed) return;
-        const guess = inputEl.value;
-        if (!guess.trim()) {
-          inputEl.focus();
+      function newShuffle() {
+        clearNote();
+        current = null;
+        exhausted = false;
+        // Keep the current pool (already loaded) but mint a new shuffle.
+        if (pool.length < 2) {
+          startSession();
           return;
         }
-        const s = state.puzzles[p.key] || (state.puzzles[p.key] = { guesses: 0, solved: false, correctOn: null, revealed: false });
-        if (isCorrectGuess(guess, p.name, p.common)) {
-          s.guesses += 1;
-          s.solved = true;
-          s.correctOn = s.guesses;
-          p.guesses = s.guesses;
-          p.solved = true;
-          p.correctOn = s.correctOn;
-          recordScore(POINTS[s.correctOn] || 0);
-        } else {
-          s.guesses += 1;
-          p.guesses = s.guesses;
-          if (p.guesses >= MAX_GUESSES) {
-            s.revealed = true;
-            p.revealed = true;
-            recordScore(0);
-          } else if (!p.orderName) {
-            // First miss: start resolving taxonomy hints if not done.
-            if (p.hintStatus === "none") ensureHints(p);
-          }
+        resetSession();
+        order = fullShuffle(pool.length, session.shuffleSeed);
+        commitSession();
+        startPuzzleAt(0);
+      }
+
+      // ---- wire up location ---------------------------------------------------
+      function onPlaceChanged() {
+        updateClearButton();
+        // A place change always begins a fresh session for that place.
+        startSession();
+      }
+
+      function updateClearButton() {
+        const has = !!(locationInput && locationInput.value && locationInput.value.trim());
+        const clearBtn = document.getElementById("placeClear");
+        if (clearBtn) clearBtn.hidden = !has;
+      }
+
+      async function init() {
+        // Hide the clear button until there's a selection.
+        updateClearButton();
+
+        if (typeof initLocationAutocomplete === "function") {
+          initLocationAutocomplete(
+            locationInput,
+            locationAutocomplete,
+            placeIdInput || null,
+            {
+              persistToStorage: true,
+              loadFromStorage: true,
+              loadFromUrl: true,
+              updateUrlOnSelect: true,
+              includeProjects: false,
+              onSelect: onPlaceChanged,
+              onClear: onPlaceChanged,
+            }
+          );
         }
-        saveState();
-        render();
-      }
 
-      // Recompute today's tally from the solved puzzles and persist the day
-      // record used by the streak (a day counts only if it scored > 0).
-      function recordScore() {
-        const today = state.date;
-        let score = 0;
-        let solved = 0;
-        for (const p of puzzles) {
-          const s = state.puzzles[p.key];
-          if (s && s.solved) {
-            solved++;
-            score += POINTS[s.correctOn] || 0;
-          }
-        }
-        state.days[today] = { score, solved, total: PUZZLE_COUNT };
-      }
-
-      // ---- rendering -------------------------------------------------------
-      function loadingCards() {
-        return Array.from({ length: PUZZLE_COUNT }, () =>
-          `<div class="guess-card guess-loading"><div class="guess-photo guess-photo-skeleton"></div><div class="guess-body"><div class="guess-skel-line"></div><div class="guess-skel-line guess-skel-line-short"></div></div></div>`
-        ).join("");
-      }
-
-      function render() {
-        renderScorebar();
-        if (!puzzles.length) return;
-        board.innerHTML = puzzles.map(renderCard).join("");
-        for (const p of puzzles) {
-          const input = document.getElementById("guessInput-" + p.key);
-          if (!input) continue;
-          const form = input.closest("form");
-          form.addEventListener("submit", (e) => {
-            e.preventDefault();
-            submitGuess(p, input);
+        const clearBtn = document.getElementById("placeClear");
+        if (clearBtn) {
+          clearBtn.addEventListener("click", () => {
+            locationInput.value = "";
+            if (placeIdInput) placeIdInput.value = "";
+            if (typeof updateUrlWithPlace === "function") updateUrlWithPlace("", "");
+            try {
+              localStorage.removeItem("inatPlaceId");
+              localStorage.removeItem("inatPlaceName");
+            } catch (err) {
+              // ignore
+            }
+            updateClearButton();
+            onPlaceChanged();
           });
         }
+
+        // Keep the clear button visible state in sync as the user types.
+        locationInput.addEventListener("input", updateClearButton);
+
+        await startSession();
       }
 
-      function renderScorebar() {
-        const today = state.date;
-        const day = state.days[today];
-        if (!day) {
-          scoreValueEl.textContent = "\u2013";
-          progressValueEl.textContent = "\u2013";
-        } else {
-          scoreValueEl.textContent = day.score + " / " + (PUZZLE_COUNT * 3);
-          progressValueEl.textContent = day.solved + " / " + (day.total || PUZZLE_COUNT);
-        }
-        streakValueEl.textContent = streakThrough(todayKey());
-      }
-
-      function renderCard(p) {
-        const photo = p.photo
-          ? `<img class="guess-photo" src="${escapeHtml(p.photo)}" alt="Mystery species" loading="lazy" />`
-          : `<div class="guess-photo guess-photo-empty">&#129417;</div>`;
-        const status = p.solved
-          ? `<div class="guess-status guess-status-solved">Solved — ${p.correctOn === 1 ? "first guess" : p.correctOn === 2 ? "second guess" : "third guess"} (+${POINTS[p.correctOn]})</div>`
-          : p.revealed
-            ? `<div class="guess-status guess-status-missed">Missed</div>`
-            : null;
-
-        const chips = [];
-        if (p.guesses >= 1) chips.push(hintChip("Order", p.orderName, p.hintStatus));
-        if (p.guesses >= 2) chips.push(hintChip("Family", p.familyName, p.hintStatus));
-        if (p.guesses >= 3) chips.push(hintChip("Genus", p.genusName, p.hintStatus));
-        const chipsHtml = chips.length
-          ? `<div class="hint-chips">${chips.join("")}</div>`
-          : "";
-
-        const done = p.solved || p.revealed;
-        const answer = done
-          ? `<div class="guess-answer"><span class="guess-answer-name">${escapeHtml(p.name)}</span>${p.common ? `<span class="guess-answer-common">${escapeHtml(p.common)}</span>` : ""} <a class="guess-answer-link" href="https://www.inaturalist.org/taxa/${p.taxonId}" target="_blank" rel="noopener">Taxon page &#8599;</a></div>`
-          : "";
-
-        const left = Math.max(0, MAX_GUESSES - p.guesses);
-        const dots = [1, 2, 3]
-          .map(
-            (n) =>
-              `<span class="guess-dot ${n <= p.guesses ? (p.solved ? "guess-dot-good" : p.revealed ? "guess-dot-bad" : "") : "guess-dot-open"}"></span>`
-          )
-          .join("");
-
-        const form = done
-          ? ""
-          : `<form class="guess-form" novalidate>
-              <div class="guess-input-row">
-                <input
-                  type="text"
-                  id="guessInput-${p.key}"
-                  class="guess-input"
-                  placeholder="Common or scientific name"
-                  autocomplete="off"
-                  spellcheck="false"
-                />
-                <button type="submit" class="guess-submit">Guess</button>
-              </div>
-              <div class="guess-dots">${dots}</div>
-            </form>`;
-
-        return `
-          <div class="guess-card ${p.solved ? "guess-card-solved" : ""} ${p.revealed ? "guess-card-missed" : ""}">
-            ${photo}
-            <div class="guess-body">
-              ${status}
-              <div class="guess-meta">${p.guesses} of ${MAX_GUESSES} guesses used</div>
-              ${chipsHtml}
-              ${answer}
-              ${form}
-            </div>
-          </div>
-        `;
-      }
-
-      function hintChip(label, value, status) {
-        if (status === "loading")
-          return `<span class="hint-chip hint-chip-loading">${label}: &hellip;</span>`;
-        const text = value
-          ? `${label}: <strong>${escapeHtml(value)}</strong>`
-          : `${label}: <span class="hint-missing">not found</span>`;
-        return `<span class="hint-chip">${text}</span>`;
-      }
-
-      loadState();
-      buildDay();
+      init();
 
       initFeedbackButton ? initFeedbackButton() : null;
       if (typeof registerServiceWorker === "function") registerServiceWorker();

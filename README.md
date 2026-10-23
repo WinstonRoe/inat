@@ -30,7 +30,7 @@ A suite of companion tools for [iNaturalist](https://www.inaturalist.org) — ex
 
 ### Play
 
-- **Guess the Species** — a daily photo puzzle: ten mystery species, three guesses each, with hints that escalate (order → family → genus) as you miss. Solve on the first guess for 3 points, then 2, then 1. The same ten puzzles for everyone each day, with a daily-streak counter to keep the pressure on
+- **Guess the Species** — an unlimited photo quiz: one big mystery-species card at a time, pick the right one from four choices (one correct, three from the same pool). No clock, no score — just a running solved/missed tally. Optionally filter to a specific place to play only species from that area; when the pool runs out, start a new shuffle
 
 ### Compare & discover
 

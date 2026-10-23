@@ -704,11 +704,39 @@ function fnv1aHash(str) {
   return h >>> 0;
 }
 
-// Map a per-day seed to an index in [0, n) — the day's puzzle slot.
-// Deterministic for a given (seed, n) pair; wraps safely for any n >= 1.
-function slotFromSeed(seed, n) {
-  const size = Math.max(1, Math.floor(Number(n)) || 1);
-  return fnv1aHash(`${seed}#${n}`) % size;
+// Pick `n` DISTINCT indices from [0, poolLen) EXCLUDING `correctIdx`,
+// deterministically from `seed`. Used by Guess the Species to build a stable
+// 4-option choice set (1 correct + 3 wrong) for a given puzzle slot so that a
+// hard-refresh mid-session resumes with the same options.
+//
+// Returns as many distinct indices as the pool allows (up to `n`). If the
+// pool is too small to supply `n` distractors the result is shorter but
+// always valid; callers should fall back to a smaller choice set.
+function pickChoices(seed, poolLen, correctIdx, n) {
+  const size = Math.max(0, Math.floor(Number(poolLen)) || 0);
+  const want = Math.max(0, Math.min(Math.floor(Number(n)) || 0, size - 1));
+  if (size < 2 || want <= 0) return [];
+  const correct = Math.floor(Number(correctIdx));
+  const out = [];
+  const seen = new Set([correct]);
+  let guard = 0;
+  const maxGuard = want * (size + 8) + 64;
+  while (out.length < want && guard < maxGuard) {
+    guard++;
+    const idx = fnv1aHash(`${seed}#${guard}`) % size;
+    if (seen.has(idx)) continue;
+    seen.add(idx);
+    out.push(idx);
+  }
+  return out;
+}
+
+// Session key for a given place. "global" when no place is selected,
+// otherwise "place-<id>". Two different places (and one place vs. none)
+// each get their own independent session in localStorage.
+function sessionKeyForPlace(placeId) {
+  if (!placeId) return "global";
+  return "place-" + String(placeId);
 }
 
 // Normalize a taxon name for comparison: trim, lowercase, strip diacritics,
@@ -732,25 +760,6 @@ function isCorrectGuess(guess, sciName, commonName) {
     (normalizeTaxonName(sciName) === g) ||
     (commonName ? normalizeTaxonName(commonName) === g : false)
   );
-}
-
-// Pick `count` distinct indices from `rows.length` valid rows, seeded per day
-// so every visitor sees the same puzzles. Rejection-samples with a capped loop
-// (FNV-hashed candidate indices) so it never hangs even when the pool is
-// slightly larger than needed. Returns as many valid indices as it can.
-function pickPuzzleSlots(seed, rows, isValid, count) {
-  const total = rows.length;
-  const want = Math.max(0, Math.min(count, total));
-  if (!want || !total) return [];
-  const seen = new Set();
-  let guard = 0;
-  const maxGuard = want * (total + 10) + 100;
-  while (seen.size < want && guard < maxGuard) {
-    guard++;
-    const idx = fnv1aHash(`${seed}:${guard}`) % total;
-    if (isValid(rows[idx])) seen.add(idx);
-  }
-  return Array.from(seen);
 }
 
 // Allow unit tests (Node) to import the pure helpers; no-op in the browser.
@@ -783,9 +792,9 @@ if (typeof module !== "undefined" && module.exports) {
     easeLabel,
     fetchTaxonEase,
     fnv1aHash,
-    slotFromSeed,
+    pickChoices,
+    sessionKeyForPlace,
     normalizeTaxonName,
     isCorrectGuess,
-    pickPuzzleSlots,
   };
 }
