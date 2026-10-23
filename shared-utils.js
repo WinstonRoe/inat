@@ -704,30 +704,74 @@ function fnv1aHash(str) {
   return h >>> 0;
 }
 
-// Pick `n` DISTINCT indices from [0, poolLen) EXCLUDING `correctIdx`,
-// deterministically from `seed`. Used by Guess the Species to build a stable
-// 4-option choice set (1 correct + 3 wrong) for a given puzzle slot so that a
-// hard-refresh mid-session resumes with the same options.
+// Build the distractor set for a Guess-the-Species puzzle: nSlots (=
+// CHOICE_COUNT - 1) DISTINCT indices from [0, poolLen) excluding correctIdx,
+// picked deterministically from `seed`. The `tiers` argument encodes
+// closest-relative candidates nearest-to-farthest: tiers[0] same-genus mates,
+// tiers[1] same-family, tiers[2] same-order (each an array of pool indices,
+// possibly empty).
 //
-// Returns as many distinct indices as the pool allows (up to `n`). If the
-// pool is too small to supply `n` distractors the result is shorter but
-// always valid; callers should fall back to a smaller choice set.
-function pickChoices(seed, poolLen, correctIdx, n) {
+// Slot s prefers tier s, bumping up to the next-farthest tier when nearer ones
+// are exhausted (so slot 0 may pull from family/order, slot 1 from order, etc.).
+// After the tier pass, any still-open slot is filled from the next unused pool
+// index in order — a harmless, deterministic, seed-independent fallback that
+// keeps the choice set valid when a rank is unresolvable.
+//
+// Always returns at most `nSlots` entries, all distinct, all in [0, poolLen),
+// none equal to correctIdx. Empty when poolLen < 2 or nSlots < 1.
+function pickTieredChoices(seed, poolLen, correctIdx, tiers, nSlots) {
   const size = Math.max(0, Math.floor(Number(poolLen)) || 0);
-  const want = Math.max(0, Math.min(Math.floor(Number(n)) || 0, size - 1));
-  if (size < 2 || want <= 0) return [];
+  nSlots = Math.floor(Number(nSlots)) || 0;
+  if (size < 2 || nSlots < 1) return [];
   const correct = Math.floor(Number(correctIdx));
-  const out = [];
+  const slotCount = Math.min(nSlots, size - 1);
+
+  const tiersNorm = Array.isArray(tiers)
+    ? tiers.map((t) => (Array.isArray(t) ? t : []))
+    : [];
+
   const seen = new Set([correct]);
-  let guard = 0;
-  const maxGuard = want * (size + 8) + 64;
-  while (out.length < want && guard < maxGuard) {
-    guard++;
-    const idx = fnv1aHash(`${seed}#${guard}`) % size;
-    if (seen.has(idx)) continue;
-    seen.add(idx);
-    out.push(idx);
+  const out = [];
+
+  // Within a tier, order candidates by a per-(slot, candidate) hash so the
+  // choice is stable for a given seed but varies across seeds.
+  const byHashDesc = (cands) =>
+    cands.slice().sort((a, b) => {
+      const ha = fnv1aHash(`${seed}#${out.length + ":" + a}`);
+      const hb = fnv1aHash(`${seed}#${out.length + ":" + b}`);
+      return hb - ha;
+    });
+
+  for (let slot = 0; slot < slotCount; slot++) {
+    let chosen = -1;
+    // Diagonal bump-up: slot starts at tier[slot] and may walk upward.
+    for (let t = slot; t < tiersNorm.length; t++) {
+      const tier = tiersNorm[t] || [];
+      for (const c of byHashDesc(tier)) {
+        const ci = Math.floor(Number(c));
+        if (!Number.isFinite(ci)) continue;
+        if (seen.has(ci)) continue;
+        if (ci < 0 || ci >= size) continue;
+        if (ci === correct) continue;
+        chosen = ci;
+        break;
+      }
+      if (chosen !== -1) break;
+    }
+    if (chosen === -1) {
+      // Fallback: deterministic linear scan for the next unused index.
+      for (let i = 0; i < size; i++) {
+        if (!seen.has(i) && i !== correct) {
+          chosen = i;
+          break;
+        }
+      }
+    }
+    if (chosen === -1) break; // nothing left
+    out.push(chosen);
+    seen.add(chosen);
   }
+
   return out;
 }
 
@@ -792,7 +836,7 @@ if (typeof module !== "undefined" && module.exports) {
     easeLabel,
     fetchTaxonEase,
     fnv1aHash,
-    pickChoices,
+    pickTieredChoices,
     sessionKeyForPlace,
     normalizeTaxonName,
     isCorrectGuess,

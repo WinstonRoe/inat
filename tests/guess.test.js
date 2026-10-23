@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 
 const {
   fnv1aHash,
-  pickChoices,
+  pickTieredChoices,
   sessionKeyForPlace,
   normalizeTaxonName,
   isCorrectGuess,
@@ -18,51 +18,101 @@ test("fnv1aHash is deterministic and fits unsigned 32 bits", () => {
   assert.notEqual(fnv1aHash("abc"), fnv1aHash("abd"));
 });
 
-test("pickChoices returns distinct, in-range distractors excluding the correct pick", () => {
-  for (let i = 0; i < 50; i++) {
-    const pool = 40;
-    const correct = i % pool;
-    const picks = pickChoices("seed-" + i, pool, correct, 3);
-    assert.equal(picks.length, 3);
+// A 7-row pool with row 0 as the correct species:
+//   0 correct  (Ardea herodias)
+//   1,2        same-genus mates    (genus tier: [1,2])
+//   1,3,4      same-family mates   (family tier: [1,3,4])
+//   1,5,6      same-order mates    (order tier: [1,5,6])
+const TIERS = [
+  [1, 2],
+  [1, 3, 4],
+  [1, 5, 6],
+];
+const POOL = 7;
+const CORRECT = 0;
+const SLOTS = 3;
+
+test("pickTieredChoices returns distinct, in-range distractors excluding the correct pick", () => {
+  for (let seedNo = 0; seedNo < 50; seedNo++) {
+    const seed = "seed-" + seedNo;
+    const picks = pickTieredChoices(seed, POOL, CORRECT, TIERS, SLOTS);
+    assert.equal(picks.length, 3, "should fill all 3 slots");
     assert.equal(new Set(picks).size, 3, "distractors must be distinct");
     for (const p of picks) {
-      assert.ok(p >= 0 && p < pool, `index ${p} out of range [0,${pool})`);
-      assert.notEqual(p, correct, "correct index must not appear");
+      assert.ok(p >= 0 && p < POOL, `index ${p} out of range [0,${POOL})`);
+      assert.notEqual(p, CORRECT, "correct index must not appear");
     }
   }
 });
 
-test("pickChoices is deterministic across runs on the same seed", () => {
-  assert.deepEqual(
-    pickChoices("2026-10-23", 250, 7, 3),
-    pickChoices("2026-10-23", 250, 7, 3)
-  );
-  assert.deepEqual(
-    pickChoices("2026-10-23", 250, 7, 3),
-    pickChoices("2026-10-23", 250, 7, 3)
+test("pickTieredChoices prefers closer relatives (genus > family > order)", () => {
+  // All three slots should resolve; since every candidate tier is non-empty,
+  // every pick must come from the union of the tiers rather than the fallback
+  // linear scan (which would only yield indices 1..6 — same set here, but the
+  // slot ordering should reflect the tier structure).
+  const picks = pickTieredChoices("g", POOL, CORRECT, TIERS, SLOTS);
+  const inTiers = new Set(TIERS.flat()); // {1, 2, 3, 4, 5, 6}
+  for (const p of picks) assert.ok(inTiers.has(p), `pick ${p} should be a listed relative`);
+});
+
+test("pickTieredChoices bumps up to a farther tier when the nearer one is empty", () => {
+  // Genus tier empty: slot 0 must be drawn from family, then order.
+  const tiersGenusEmpty = [[], [1, 3, 4], [1, 5, 6]];
+  const picks = pickTieredChoices("bump", POOL, CORRECT, tiersGenusEmpty, SLOTS);
+  assert.equal(picks.length, 3);
+  assert.equal(new Set(picks).size, 3);
+  const familyOrder = new Set([1, 3, 4, 1, 5, 6]);
+  for (const p of picks) assert.ok(familyOrder.has(p));
+
+  // Both genus and family empty: all 3 slots must come from ordering+fallback.
+  const tiersGenusFamilyEmpty = [[], [], [1, 5, 6]];
+  const picks2 = pickTieredChoices("bump2", POOL, CORRECT, tiersGenusFamilyEmpty, SLOTS);
+  assert.equal(picks2.length, 3);
+  assert.equal(new Set(picks2).size, 3);
+});
+
+test("pickTieredChoices falls back to linear-scan indices when every tier is empty", () => {
+  // No relatives at all -> fill from the next unused indices 1..3.
+  const empty = [[], [], []];
+  const picks = pickTieredChoices("flat", POOL, CORRECT, empty, SLOTS);
+  assert.equal(picks.length, 3);
+  assert.deepEqual(picks.sort(), [1, 2, 3]);
+});
+
+test("pickTieredChoices is deterministic on the same seed and tiers", () => {
+  const a = pickTieredChoices("2026-10-23", POOL, CORRECT, TIERS, SLOTS);
+  const b = pickTieredChoices("2026-10-23", POOL, CORRECT, TIERS, SLOTS);
+  const c = pickTieredChoices("2026-10-23", POOL, CORRECT, TIERS, SLOTS);
+  assert.deepEqual(a, b);
+  assert.deepEqual(a, c);
+});
+
+test("pickTieredChoices varies across different seeds (when tiers are populated)", () => {
+  const distinct = new Set();
+  for (const seed of ["seed-a", "seed-b", "seed-c", "seed-d", "seed-e"]) {
+    distinct.add(JSON.stringify(pickTieredChoices(seed, POOL, CORRECT, TIERS, SLOTS)));
+  }
+  assert.ok(
+    distinct.size >= 2,
+    `expected at least two distinct orderings, got ${distinct.size}`
   );
 });
 
-test("pickChoices returns different distractors for different seeds", () => {
-  const a = pickChoices("seed-a", 250, 7, 3);
-  const b = pickChoices("seed-b", 250, 7, 3);
-  assert.notDeepEqual(a, b);
-});
-
-test("pickChoices clamps to pool size and handles tiny pools", () => {
-  // Pool of 4, want 3 distractors -> all 3 valid non-correct indices, as a set.
-  const picks = pickChoices("d", 4, 0, 3).sort();
-  assert.deepEqual(picks, [1, 2, 3]);
+test("pickTieredChoices clamps to pool size and handles tiny/empty pools", () => {
+  // Pool of 4, want 3 -> the only valid non-correct indices, as a set.
+  const tiersSmall = [[1], [1, 2], [1, 3]];
+  const picks4 = pickTieredChoices("d", 4, 0, tiersSmall, 3).sort();
+  assert.deepEqual(picks4, [1, 2, 3]);
 
   // Pool of 2 -> at most 1 distractor.
-  const picks2 = pickChoices("d", 2, 0, 3);
+  const picks2 = pickTieredChoices("d", 2, 0, [[1], [1], [1]], 3);
   assert.equal(picks2.length, 1);
   assert.equal(picks2[0], 1);
 
   // Pool of 1 -> no distractors possible.
-  assert.deepEqual(pickChoices("d", 1, 0, 3), []);
+  assert.deepEqual(pickTieredChoices("d", 1, 0, [], 3), []);
   // Empty pool.
-  assert.deepEqual(pickChoices("d", 0, 0, 3), []);
+  assert.deepEqual(pickTieredChoices("d", 0, 0, [], 3), []);
 });
 
 test("sessionKeyForPlace maps to stable per-place keys", () => {

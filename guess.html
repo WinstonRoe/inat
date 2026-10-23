@@ -23,12 +23,12 @@
     />
     <meta
       name="description"
-      content="An endless species quiz: one photo, four choices, unlimited rounds. Filter by any place on Earth and keep going until the area runs out of species."
+      content="An endless species quiz: one photo, four choices, unlimited rounds. The wrong answers are relatives. Filter by any place on Earth and keep going until the area runs out of species."
     />
     <meta property="og:title" content="Guess the Species - iNaturalist Species Quiz" />
     <meta
       property="og:description"
-      content="One photo, four choices, unlimited rounds. Filter by place and keep going until the area runs out of species."
+      content="One photo, four choices, unlimited rounds. The wrong answers are relatives. Filter by place and keep going until the area runs out of species."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://WinstonRoe.github.io/inat/guess" />
@@ -83,8 +83,9 @@
             <h1>Guess the Species</h1>
           </div>
           <p class="description">
-            One photo, four choices, one winner. Play as long as you like —
-            change the place to quiz species from anywhere on Earth.
+            One photo, four choices, one winner. The wrong answers are always
+            relatives — same genus, family, or order when the area has them.
+            Play as long as you like; change the place to quiz anywhere on Earth.
           </p>
         </div>
       </header>
@@ -129,7 +130,7 @@
     <script src="shared-utils.js?v=9"></script>
     <script src="location-autocomplete.js?v=2"></script>
     <script>
-      const STORAGE_KEY = "inat-guess-v3";
+      const STORAGE_KEY = "inat-guess-v4";
       const POOL_PER_PAGE = 500;
       const CHOICE_COUNT = 4;
 
@@ -185,10 +186,13 @@
       }
 
       // ---- pool + session state ---------------------------------------------
-      // pool: array of {taxonId, obsId, name, common, photo}
+      // pool: array of {taxonId, obsId, name, common, photo, ancestorIds}
       // order: array of pool indices in play order for the current shuffle
+      // rowTiers[rowIdx] = [[genusMates], [familyMates], [orderMates]] — pools
+      // of candidate distractor indices closest-to-farthest (may be empty).
       let pool = [];
       let order = [];
+      let rowTiers = [];
       let session = { solved: 0, missed: 0, started: -1, shuffleSeed: "" };
       let exhausted = false;
       let current = null;
@@ -224,12 +228,14 @@
 
       function bestPhotoOf(r) {
         const t = r.taxon;
+        // iNat default_photo exposes flat keys; .url is the square (small)
+        // image, .medium_url the crisp one. Prefer the larger of the two.
         const dp =
           t && t.default_photo
-            ? t.default_photo.url || (t.default_photo.medium && t.default_photo.medium.url)
+            ? t.default_photo.medium_url || t.default_photo.url
             : "";
         if (dp) return dp;
-        const op = r.photo && (r.photo.url || (r.photo.medium && r.photo.medium.url));
+        const op = r.photo && (r.photo.medium_url || r.photo.url);
         return op || "";
       }
 
@@ -251,9 +257,95 @@
             name: t.name,
             common: t.preferred_common_name || "",
             photo: bestPhotoOf(r),
+            ancestorIds: t.ancestor_ids || [],
           });
         }
         return rows;
+      }
+
+      // Resolve which ancestor id belongs to each rank (genus/family/order)
+      // for every pool row, then bucket rows by taxon per rank. Powers the
+      // closest-relative-first distractor picking. The iNat observation payload
+      // carries only flat `ancestor_ids`, so we batch-fetch /taxa for the ids'
+      // ranks. Any failure is swallowed — the game must still work; tiers then
+      // fall back to "any unused index" via pickTieredChoices's final fill.
+      async function resolveRanks() {
+        rowTiers = pool.map(() => [[], [], []]);
+        if (pool.length < 2) return;
+
+        const wanted = new Set();
+        for (const row of pool) for (const id of row.ancestorIds || []) wanted.add(id);
+        if (!wanted.size) return;
+
+        const rankOf = new Map(); // taxon id -> rank string
+        try {
+          const ids = Array.from(wanted);
+          for (let i = 0; i < ids.length; i += 500) {
+            const chunk = ids.slice(i, i + 500);
+            const data = await fetchJSON(
+              `${API_BASE}/taxa?id=${chunk.join(",")}&per_page=${chunk.length}`
+            );
+            for (const t of data.results || []) {
+              if (t && t.id != null && t.rank) rankOf.set(t.id, t.rank);
+            }
+          }
+        } catch (err) {
+          return;
+        }
+
+        // Pick the ancestor id for each target rank per row. "subgenus" is a
+        // reasonable stand-in for genus (genus is absent when a subgenus sits
+        // between the family and the species).
+        const pickId = (ids, targets) => {
+          for (const target of targets) {
+            const found = ids.find((id) => rankOf.get(id) === target);
+            if (found != null) return found;
+          }
+          return null;
+        };
+
+        const buckets = { genus: new Map(), family: new Map(), order: new Map() };
+        const rowByRank = new Array(pool.length).fill(null).map(() => ({
+          genus: null,
+          family: null,
+          order: null,
+        }));
+        for (let rowIdx = 0; rowIdx < pool.length; rowIdx++) {
+          const ids = pool[rowIdx].ancestorIds || [];
+          rowByRank[rowIdx] = {
+            genus: pickId(ids, ["genus", "subgenus"]),
+            family: pickId(ids, ["family"]),
+            order: pickId(ids, ["order"]),
+          };
+          for (const rank of ["genus", "family", "order"]) {
+            const id = rowByRank[rowIdx][rank];
+            if (id == null) continue;
+            let s = buckets[rank].get(id);
+            if (!s) {
+              s = new Set();
+              buckets[rank].set(id, s);
+            }
+            s.add(rowIdx);
+          }
+        }
+
+        const mates = (rank, rowIdx) => {
+          const id = rowByRank[rowIdx][rank];
+          const s = id == null ? null : buckets[rank].get(id);
+          if (!s) return [];
+          const out = [];
+          for (const i of s) if (i !== rowIdx) out.push(i);
+          out.sort((a, b) => a - b);
+          return out;
+        };
+
+        for (let rowIdx = 0; rowIdx < pool.length; rowIdx++) {
+          rowTiers[rowIdx] = [
+            mates("genus", rowIdx),
+            mates("family", rowIdx),
+            mates("order", rowIdx),
+          ];
+        }
       }
 
       // `session.started` = index into `order` of the puzzle currently on
@@ -323,7 +415,8 @@
         // Row is the correct one. Pick up to (CHOICE_COUNT - 1) distinct
         // distractors from the pool (excluding rowIdx), deterministically.
         const seed = session.shuffleSeed + ":" + placeKey() + ":" + session.started + ":" + rowIdx + ":" + pool[rowIdx].taxonId;
-        const distract = pickChoices(seed, pool.length, rowIdx, CHOICE_COUNT - 1);
+        const tiers = rowTiers[rowIdx] || [[], [], []];
+        const distract = pickTieredChoices(seed, pool.length, rowIdx, tiers, CHOICE_COUNT - 1);
         const set = new Set([rowIdx]);
         for (const d of distract) set.add(d);
         // Deterministic presentation: correct slot first, distractors in pick-order.
@@ -502,6 +595,14 @@
         updateScorebar();
         try {
           pool = await loadPool();
+          // Derive closest-relative distractor tiers. Non-fatal: on any
+          // network/API trouble the tiers stay empty and choices fall back to
+          // arbitrary unused indices (the game still works).
+          try {
+            await resolveRanks();
+          } catch (err) {
+            rowTiers = pool.map(() => [[], [], []]);
+          }
           if (pool.length < 2) {
             exhausted = true;
             renderStage();
