@@ -1,13 +1,13 @@
 /**
  * iNaturalist Observations Widget
  * A modern, embeddable widget for displaying iNaturalist observations
- * https://glauberramos.github.io/inat/widget
+ * https://WinstonRoe.github.io/inat/widget
  */
 (function () {
   "use strict";
 
   const INAT_API = "https://api.inaturalist.org/v1";
-  const WIDGET_HOME_URL = "https://glauberramos.github.io/inat/widget?ref=widget-embed";
+  const WIDGET_HOME_URL = "https://WinstonRoe.github.io/inat/widget?ref=widget-embed";
 
   function initWidgets() {
     const containers = document.querySelectorAll("[data-inat-widget]");

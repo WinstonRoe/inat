@@ -424,7 +424,7 @@
     ctx.textAlign = 'left';
     ctx.fillStyle = T.muted;
     ctx.font = `700 24px ${MONO}`;
-    ctx.fillText('🍃 glauberramos.github.io/inat', M, footerLineY + 62);
+    ctx.fillText('🍃 WinstonRoe.github.io/inat', M, footerLineY + 62);
     ctx.textAlign = 'right';
     const today = new Date()
       .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
