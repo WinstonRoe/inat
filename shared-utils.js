@@ -686,6 +686,73 @@ async function fetchTaxonEase(apiBase, taxonId, { delayMs = 0 } = {}) {
   return { taxonId, verifiable, research, ease: computeEase(research, verifiable) };
 }
 
+// --- Guess the Species daily game --------------------------------------------
+
+// FNV-1a 32-bit string hash: tiny, fast, deterministic, no crypto. Returns an
+// unsigned 32-bit integer. Same string -> same hash on every run and browser.
+function fnv1aHash(str) {
+  let h = 0x811c9dc5;
+  const s = String(str);
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    // h = (h * 0x01000193) >>> 0, expanded so it is valid in 32-bit JS math.
+    h =
+      (h +
+        ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 16) + (h << 24))) >>>
+      0;
+  }
+  return h >>> 0;
+}
+
+// Map a per-day seed to an index in [0, n) — the day's puzzle slot.
+// Deterministic for a given (seed, n) pair; wraps safely for any n >= 1.
+function slotFromSeed(seed, n) {
+  const size = Math.max(1, Math.floor(Number(n)) || 1);
+  return fnv1aHash(`${seed}#${n}`) % size;
+}
+
+// Normalize a taxon name for comparison: trim, lowercase, strip diacritics,
+// collapse internal whitespace. Empty / non-string input -> "".
+function normalizeTaxonName(s) {
+  if (typeof s !== "string") return "";
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// A guess is correct if it matches the scientific name or the preferred
+// common name (both normalized). Empty guesses are never correct.
+function isCorrectGuess(guess, sciName, commonName) {
+  const g = normalizeTaxonName(guess);
+  if (!g) return false;
+  return (
+    (normalizeTaxonName(sciName) === g) ||
+    (commonName ? normalizeTaxonName(commonName) === g : false)
+  );
+}
+
+// Pick `count` distinct indices from `rows.length` valid rows, seeded per day
+// so every visitor sees the same puzzles. Rejection-samples with a capped loop
+// (FNV-hashed candidate indices) so it never hangs even when the pool is
+// slightly larger than needed. Returns as many valid indices as it can.
+function pickPuzzleSlots(seed, rows, isValid, count) {
+  const total = rows.length;
+  const want = Math.max(0, Math.min(count, total));
+  if (!want || !total) return [];
+  const seen = new Set();
+  let guard = 0;
+  const maxGuard = want * (total + 10) + 100;
+  while (seen.size < want && guard < maxGuard) {
+    guard++;
+    const idx = fnv1aHash(`${seed}:${guard}`) % total;
+    if (isValid(rows[idx])) seen.add(idx);
+  }
+  return Array.from(seen);
+}
+
 // Allow unit tests (Node) to import the pure helpers; no-op in the browser.
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
@@ -715,5 +782,10 @@ if (typeof module !== "undefined" && module.exports) {
     computeEase,
     easeLabel,
     fetchTaxonEase,
+    fnv1aHash,
+    slotFromSeed,
+    normalizeTaxonName,
+    isCorrectGuess,
+    pickPuzzleSlots,
   };
 }

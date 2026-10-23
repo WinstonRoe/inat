@@ -28,6 +28,10 @@ A suite of companion tools for [iNaturalist](https://www.inaturalist.org) — ex
 - **Top Genera** — your observations grouped by the best-observed rank (genus, family, order, class, phylum, or kingdom), so you can see which genera are your strongest and which you're only sampling — with CSV export
 - **Easy Wins** — your pending IDs ranked by how easy the species are to confirm to research grade (the share of the species' verifiable obs the community already research-grades), as a quick-win work queue with deep links and CSV export
 
+### Play
+
+- **Guess the Species** — a daily photo puzzle: ten mystery species, three guesses each, with hints that escalate (order → family → genus) as you miss. Solve on the first guess for 3 points, then 2, then 1. The same ten puzzles for everyone each day, with a daily-streak counter to keep the pressure on
+
 ### Compare & discover
 
 - **Location Species Compare** — compare species between two places
