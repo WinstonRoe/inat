@@ -775,6 +775,21 @@ function pickTieredChoices(seed, poolLen, correctIdx, tiers, nSlots) {
   return out;
 }
 
+// Deterministic seed-keyed shuffle (seeded Fisher-Yates), same hash idiom as
+// fullShuffle: same (input, seed) -> same order, different seeds -> different
+// orders. Returns a new array; the input is never mutated. Non-array input
+// yields [].
+function shuffleChoices(arr, seed) {
+  const out = Array.isArray(arr) ? arr.slice() : [];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = fnv1aHash(seed + "#" + i) % (i + 1);
+    const tmp = out[i];
+    out[i] = out[j];
+    out[j] = tmp;
+  }
+  return out;
+}
+
 // Session key for a given place. "global" when no place is selected,
 // otherwise "place-<id>". Two different places (and one place vs. none)
 // each get their own independent session in localStorage.
@@ -837,6 +852,7 @@ if (typeof module !== "undefined" && module.exports) {
     fetchTaxonEase,
     fnv1aHash,
     pickTieredChoices,
+    shuffleChoices,
     sessionKeyForPlace,
     normalizeTaxonName,
     isCorrectGuess,

@@ -40,6 +40,13 @@ const sharedGlobals = {
   initUsername: "readonly",
   initPlace: "readonly",
   initLanguage: "readonly",
+  // Guess the Species daily game helpers (shared-utils.js)
+  fnv1aHash: "readonly",
+  pickTieredChoices: "readonly",
+  shuffleChoices: "readonly",
+  sessionKeyForPlace: "readonly",
+  normalizeTaxonName: "readonly",
+  isCorrectGuess: "readonly",
   // notifications.js
   CATEGORY_PRIORITY: "readonly",
   CATEGORY_LABELS: "readonly",

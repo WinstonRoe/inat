@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const {
   fnv1aHash,
   pickTieredChoices,
+  shuffleChoices,
   sessionKeyForPlace,
   normalizeTaxonName,
   isCorrectGuess,
@@ -113,6 +114,44 @@ test("pickTieredChoices clamps to pool size and handles tiny/empty pools", () =>
   assert.deepEqual(pickTieredChoices("d", 1, 0, [], 3), []);
   // Empty pool.
   assert.deepEqual(pickTieredChoices("d", 0, 0, [], 3), []);
+});
+
+test("shuffleChoices is a permutation of the input (order varies, set preserved)", () => {
+  const base = [0, 1, 2, 3];
+  for (let i = 0; i < 20; i++) {
+    const seed = "c-" + i;
+    const out = shuffleChoices(base, seed);
+    assert.equal(out.length, base.length);
+    assert.deepEqual([...out].sort((a, b) => a - b), [0, 1, 2, 3], "must be a permutation");
+  }
+});
+
+test("shuffleChoices does not mutate its input and returns a fresh array", () => {
+  const base = [3, 1, 4, 1, 5];
+  const before = base.slice();
+  const out = shuffleChoices(base, "mut");
+  assert.deepEqual(base, before, "input must be unchanged");
+  assert.notEqual(out, base, "must return a new array");
+  out.push(99);
+  assert.deepEqual(base, before, "mutating the result must not affect the input");
+});
+
+test("shuffleChoices is deterministic on the same seed and varies across seeds", () => {
+  const a = shuffleChoices([0, 1, 2, 3], "2026-10-23");
+  const b = shuffleChoices([0, 1, 2, 3], "2026-10-23");
+  assert.deepEqual(a, b, "same seed -> same order");
+  const distinct = new Set();
+  for (const seed of ["s-a", "s-b", "s-c", "s-d", "s-e"]) {
+    distinct.add(JSON.stringify(shuffleChoices([0, 1, 2, 3], seed)));
+  }
+  assert.ok(distinct.size >= 2, `expected at least two distinct orders, got ${distinct.size}`);
+});
+
+test("shuffleChoices handles empty and singleton input", () => {
+  assert.deepEqual(shuffleChoices([], "x"), []);
+  assert.deepEqual(shuffleChoices([7], "x"), [7]);
+  assert.deepEqual(shuffleChoices(null, "x"), []);
+  assert.deepEqual(shuffleChoices(undefined, "x"), []);
 });
 
 test("sessionKeyForPlace maps to stable per-place keys", () => {
