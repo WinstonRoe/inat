@@ -185,3 +185,19 @@ test("isCorrectGuess matches sciname and common name, case/diacritic-insensitive
   assert.ok(isCorrectGuess("Ardea herodias", "Ardea herodias", null));
   assert.ok(!isCorrectGuess("heron", "Ardea herodias", null));
 });
+
+test("pickTieredChoices never returns the correct index even in fallback", () => {
+  const empty = [[], [], []];
+  for (let i = 0; i < 20; i++) {
+    const seed = "x-" + i;
+    const picks = pickTieredChoices(seed, 10, 5, empty, 3);
+    for (const p of picks) assert.notEqual(p, 5);
+    assert.equal(new Set(picks).size, picks.length);
+  }
+});
+
+test("pickTieredChoices with all empty tiers picks distinct unrelated indices", () => {
+  const picks = pickTieredChoices("flat", 10, 3, [[], [], []], 3);
+  assert.equal(picks.length, 3);
+  assert.deepEqual(picks.sort(), [0, 1, 2]);
+});

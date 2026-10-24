@@ -247,9 +247,11 @@
         );
         const rows = [];
         const seen = new Set();
+        const speciesRanks = new Set(["species", "subspecies", "variety", "form"]);
         for (const r of data.results || []) {
           const t = r.taxon;
           if (!t || !t.min_species_taxon_id || seen.has(t.min_species_taxon_id)) continue;
+          if (!speciesRanks.has(t.rank)) continue;
           seen.add(t.min_species_taxon_id);
           rows.push({
             taxonId: t.min_species_taxon_id,
@@ -286,12 +288,18 @@
           const ids = Array.from(wanted);
           for (let i = 0; i < ids.length; i += 500) {
             const chunk = ids.slice(i, i + 500);
-            const data = await fetchJSON(
-              `${API_BASE}/taxa?id=${chunk.join(",")}&per_page=${chunk.length}`
-            );
-            for (const t of data.results || []) {
-              if (t && t.id != null) taxaById.set(t.id, t);
-              if (t && t.id != null && t.rank) rankOf.set(t.id, t.rank);
+            if (!chunk.length) continue;
+            try {
+              const data = await fetchJSON(
+                `${API_BASE}/taxa?id=${chunk.join(",")}&per_page=500`
+              );
+              for (const t of data.results || []) {
+                if (t && t.id != null) taxaById.set(t.id, t);
+                if (t && t.id != null && t.rank) rankOf.set(t.id, t.rank);
+              }
+            } catch (err) {
+              // Continue with remaining chunks if one chunk fails
+              continue;
             }
           }
         } catch (err) {
